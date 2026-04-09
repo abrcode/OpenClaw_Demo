@@ -3,291 +3,674 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenClaw Portal</title>
+<title>OpenClaw Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0f0f11;--surface:#17171a;--card:#1c1c20;--border:#2a2a30;--accent:#e05a2b;--gold:#f0a500;--text:#e8e8ec;--muted:#6b6b78;--ok:#2dbe6c;--err:#e0432b;--warn:#f0a500;--blue:#4a9eff;--r:8px}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:1.5rem 1rem}
-.wrap{max-width:1020px;margin:0 auto;display:flex;flex-direction:column;gap:1.2rem}
-.header{display:flex;align-items:center;gap:12px;padding-bottom:1.2rem;border-bottom:1px solid var(--border)}
-.logo{width:38px;height:38px;background:var(--accent);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
-.header h1{font-size:1.15rem;font-weight:600}
-.header p{font-size:.75rem;color:var(--muted);margin-top:2px}
-.dbg{margin-left:auto;font-size:.7rem;font-family:monospace;color:var(--gold);border:1px solid var(--gold);padding:3px 9px;border-radius:4px;text-decoration:none;opacity:.7}
-.dbg:hover{opacity:1}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
-@media(max-width:680px){.grid{grid-template-columns:1fr}}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.3rem}
-.card h2{font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:1.1rem}
-label{display:block;font-size:.72rem;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 .3rem}
-label:first-of-type{margin-top:0}
-input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:inherit;font-size:.88rem;padding:.6rem .8rem;outline:none;transition:border-color .15s}
-input:focus,select:focus,textarea:focus{border-color:var(--accent)}
-textarea{font-family:monospace;font-size:.78rem;resize:vertical;min-height:120px;line-height:1.55}
-select option{background:#1a1a1f}
-.btn{display:block;width:100%;margin-top:1rem;padding:.7rem;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:.88rem;font-weight:600;cursor:pointer;transition:background .15s}
-.btn:hover{background:#c94d22}
-.btn:disabled{background:#3a3a3a;cursor:not-allowed}
-.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
-.btn-ghost:hover{background:var(--card);color:var(--text)}
-.btn-blue{background:rgba(74,158,255,.15);border:1px solid rgba(74,158,255,.4);color:var(--blue)}
-.btn-blue:hover{background:rgba(74,158,255,.25)}
-.status{margin-top:.9rem;padding:.7rem .9rem;border-radius:var(--r);font-size:.75rem;font-family:monospace;white-space:pre-wrap;display:none;word-break:break-all;line-height:1.5}
-.s-ok{background:rgba(45,190,108,.1);border:1px solid rgba(45,190,108,.3);color:var(--ok)}
-.s-err{background:rgba(224,67,43,.1);border:1px solid rgba(224,67,43,.3);color:var(--err)}
-.s-warn{background:rgba(240,165,0,.1);border:1px solid rgba(240,165,0,.3);color:var(--warn)}
+:root{
+  --bg:#080a0d;--s1:#0d1117;--s2:#161b22;--s3:#21262d;
+  --border:#30363d;--border2:#484f58;
+  --accent:#f78166;--accent2:#79c0ff;
+  --green:#56d364;--yellow:#e3b341;--purple:#bc8cff;--red:#f85149;
+  --text:#e6edf3;--muted:#8b949e;
+  --r:6px;
+  --font-display:'Syne',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-mono);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.shell{display:grid;grid-template-columns:240px 1fr;grid-template-rows:52px 1fr;height:100vh;overflow:hidden}
 
-/* agent list */
-.alist{display:flex;flex-direction:column;gap:.5rem}
-.aitem{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:.65rem .85rem}
-.arow{display:flex;align-items:center;gap:.6rem}
-.aicon{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--gold));display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0}
-.aname{font-size:.87rem;font-weight:600;flex:1;min-width:0}
-.badges{display:flex;gap:.3rem;align-items:center;margin-left:auto}
-.badge{font-size:.6rem;font-family:monospace;padding:2px 5px;border-radius:3px}
-.b-ok{background:rgba(45,190,108,.12);color:var(--ok);border:1px solid rgba(45,190,108,.3)}
-.b-bad{background:rgba(224,67,43,.12);color:var(--err);border:1px solid rgba(224,67,43,.3)}
-.b-blue{background:rgba(74,158,255,.12);color:var(--blue);border:1px solid rgba(74,158,255,.3)}
-.b-gray{background:rgba(107,107,120,.12);color:var(--muted);border:1px solid rgba(107,107,120,.3)}
-.abtn{font-size:.65rem;padding:2px 7px;background:transparent;border:1px solid;border-radius:3px;cursor:pointer;font-family:inherit;flex-shrink:0}
-.abtn-gold{border-color:var(--gold);color:var(--gold)}.abtn-gold:hover{background:rgba(240,165,0,.1)}
-.abtn-blue{border-color:var(--blue);color:var(--blue)}.abtn-blue:hover{background:rgba(74,158,255,.1)}
-.ameta{font-size:.67rem;color:var(--muted);margin-top:4px;font-family:monospace;padding-left:34px}
-.empty{color:var(--muted);font-size:.82rem;text-align:center;padding:1.5rem 0}
+/* TOPBAR */
+.topbar{grid-column:1/-1;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:.75rem}
+.brand{font-family:var(--font-display);font-weight:800;font-size:1rem;color:var(--accent);letter-spacing:-.02em;display:flex;align-items:center;gap:.4rem}
+.tab-bar{flex:1;display:flex;justify-content:center;gap:.2rem}
+.tab{font-family:var(--font-display);font-size:.75rem;font-weight:600;padding:.3rem .8rem;border-radius:var(--r);border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.tab.active{background:var(--s3);color:var(--text)}
+.tab:hover:not(.active){background:var(--s2);color:var(--text)}
+.gw-status{display:flex;align-items:center;gap:.4rem;font-size:.7rem}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-online{background:var(--green);box-shadow:0 0 5px var(--green)}
+.dot-offline{background:var(--red);box-shadow:0 0 5px var(--red)}
+.dot-checking{background:var(--yellow)}
+a.dbg{font-size:.68rem;color:var(--muted);border:1px solid var(--border);padding:2px 7px;border-radius:4px;text-decoration:none}
 
-/* panels */
-.panel{background:var(--card);border-radius:var(--r);padding:1rem;margin-top:.8rem;display:none}
-.panel-soul{border:1px solid rgba(240,165,0,.3)}
-.panel-reg{border:1px solid rgba(74,158,255,.3)}
-.panel h3{font-size:.73rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.7rem}
-.panel-soul h3{color:var(--gold)}
-.panel-reg h3{color:var(--blue)}
-.toggle-row{display:flex;align-items:center;gap:.6rem;margin-top:.7rem;padding:.55rem .75rem;background:rgba(240,165,0,.06);border:1px solid rgba(240,165,0,.2);border-radius:6px}
-.toggle-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--gold);flex-shrink:0}
-.toggle-row p{font-size:.73rem;color:#bbb;line-height:1.4}
-.toggle-row strong{color:var(--gold)}
+/* SIDEBAR */
+.sidebar{background:var(--s1);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;padding:.6rem .4rem}
+.sb-section{font-size:.62rem;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:.4rem .5rem .25rem}
+.agent-btn{display:flex;align-items:center;gap:.5rem;padding:.45rem .55rem;border-radius:var(--r);cursor:pointer;transition:background .12s;margin-bottom:1px;border:none;background:transparent;width:100%;text-align:left;color:var(--text)}
+.agent-btn:hover{background:var(--s2)}
+.agent-btn.selected{background:var(--s3)}
+.agent-btn.selected .abn{color:var(--accent2)}
+.av{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0;font-family:var(--font-display);font-weight:700}
+.abn{font-size:.78rem;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.abadge{font-size:.52rem;padding:1px 4px;border-radius:3px;flex-shrink:0;border:1px solid}
+.b-ok{background:rgba(86,211,100,.1);color:var(--green);border-color:rgba(86,211,100,.3)}
+.b-err{background:rgba(248,81,73,.1);color:var(--red);border-color:rgba(248,81,73,.3)}
+.sb-add{display:flex;align-items:center;gap:.4rem;padding:.4rem .55rem;border-radius:var(--r);cursor:pointer;color:var(--muted);font-size:.75rem;transition:all .15s;margin-top:auto;border:1px dashed var(--border);background:transparent;width:100%;color:var(--muted)}
+.sb-add:hover{background:var(--s2);color:var(--text);border-color:var(--border2)}
 
-/* insight */
-.insight{background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.25);border-radius:var(--r);padding:1rem 1.1rem}
-.insight h3{font-size:.75rem;font-weight:600;color:var(--blue);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.05em}
-.insight p{font-size:.82rem;color:#bbb;line-height:1.65}
-code{font-size:.73rem;background:var(--bg);border:1px solid var(--border);padding:1px 5px;border-radius:4px;font-family:monospace;color:var(--gold)}
+/* MAIN */
+.main{overflow:hidden;display:flex;flex-direction:column;height:100%}
+.panel{display:none;flex-direction:column;height:100%}
+.panel.active{display:flex}
+.panel-scroll{flex:1;overflow-y:auto;padding:1rem}
 
-/* steps */
-.steps{display:flex;flex-direction:column;gap:.65rem;margin-top:.4rem}
-.step{display:flex;gap:.75rem;align-items:flex-start}
-.step-n{width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
-.step p{font-size:.81rem;line-height:1.6;color:#bbb}
-.step p strong{color:var(--text)}
+/* TASK PANEL */
+.task-pane{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.task-header{display:flex;align-items:center;gap:.65rem;padding:.85rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.task-av{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;font-family:var(--font-display);font-weight:700}
+.task-name{font-family:var(--font-display);font-weight:700;font-size:.95rem}
+.task-model{font-size:.68rem;color:var(--muted);margin-top:1px}
+.oc-link{margin-left:auto;font-size:.68rem;color:var(--accent2);border:1px solid rgba(121,192,255,.3);padding:2px 8px;border-radius:4px;text-decoration:none}
+.oc-link:hover{background:rgba(121,192,255,.08)}
+.task-body{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:.75rem}
+.response-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:.5rem}
+
+/* Response area */
+.response-box{flex:1;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.85rem;overflow-y:auto;font-size:.8rem;line-height:1.7;position:relative;transition:border-color .2s}
+.response-box.streaming{border-color:var(--accent2)}
+.response-placeholder{color:var(--muted);font-style:italic;font-size:.8rem}
+.response-text{white-space:pre-wrap;word-break:break-word}
+.cursor{display:inline-block;width:2px;height:.9em;background:var(--accent2);margin-left:1px;animation:blink .65s steps(1) infinite;vertical-align:text-bottom}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Debug log (collapsible) */
+.debug-bar{display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;user-select:none;flex-shrink:0}
+.debug-bar span{font-size:.68rem;color:var(--muted)}
+.debug-bar .toggle{margin-left:auto;font-size:.68rem;color:var(--muted)}
+.debug-log{background:var(--s1);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);padding:.5rem .65rem;overflow-y:auto;max-height:130px;display:none}
+.debug-log.open{display:block}
+.log-line{font-size:.67rem;color:var(--muted);line-height:1.5;white-space:pre-wrap}
+.log-line.err{color:var(--red)}
+.log-line.ok{color:var(--green)}
+
+/* Status bar */
+.status-bar{display:flex;align-items:center;gap:.6rem;padding:.3rem 0;font-size:.68rem;color:var(--muted);flex-shrink:0}
+.sdot{width:6px;height:6px;border-radius:50%}
+.sd-idle{background:var(--border2)}
+.sd-work{background:var(--yellow);animation:pulse 1s ease-in-out infinite}
+.sd-done{background:var(--green)}
+.sd-err{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Input */
+.input-row{display:flex;gap:.5rem;flex-shrink:0;margin-top:.5rem}
+.task-input{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-mono);font-size:.8rem;padding:.6rem .8rem;resize:none;min-height:72px;outline:none;transition:border-color .15s;line-height:1.5}
+.task-input:focus{border-color:var(--accent2)}
+.task-input::placeholder{color:var(--muted)}
+.input-btns{display:flex;flex-direction:column;gap:.4rem;flex-shrink:0}
+.btn-send{background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:.6rem 1rem;font-family:var(--font-display);font-weight:700;font-size:.8rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-send:hover{background:#e06a52}
+.btn-send:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
+.btn-sm{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--r);padding:.4rem .7rem;font-family:var(--font-mono);font-size:.7rem;cursor:pointer;transition:all .15s}
+.btn-sm:hover{background:var(--s2);color:var(--text)}
+
+/* Empty state */
+.empty-task{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:.5rem}
+.empty-task .big{font-size:2rem}
+.empty-task h3{font-family:var(--font-display);color:var(--text);font-size:.95rem}
+.empty-task p{font-size:.78rem}
+
+/* HISTORY */
+.history-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.8rem;cursor:pointer;transition:border-color .15s;margin-bottom:.5rem}
+.history-card:hover{border-color:var(--border2)}
+.hc-top{display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem}
+.hc-av{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:var(--font-display);font-weight:700}
+.hc-name{font-size:.75rem;font-weight:600}
+.hc-time{margin-left:auto;font-size:.65rem;color:var(--muted)}
+.hc-task{font-size:.75rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.25rem}
+.hc-resp{font-size:.7rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* FORMS */
+.section-title{font-family:var(--font-display);font-weight:700;font-size:.95rem;margin-bottom:.85rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}
+.fg{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.7rem}
+.fl{font-size:.65rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.fi,.fs,.ft{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-mono);font-size:.8rem;padding:.55rem .75rem;outline:none;transition:border-color .15s;width:100%}
+.fi:focus,.fs:focus,.ft:focus{border-color:var(--accent2)}
+.ft{resize:vertical;min-height:150px;line-height:1.55}
+.fs option{background:var(--s2)}
+.btn-primary{background:var(--accent2);color:var(--bg);border:none;border-radius:var(--r);padding:.6rem 1.2rem;font-family:var(--font-display);font-weight:700;font-size:.82rem;cursor:pointer;transition:all .15s;margin-top:.25rem}
+.btn-primary:hover{opacity:.85}
+.btn-primary:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
+.btn-green{background:var(--green);color:var(--bg)}
+.btn-yellow{background:var(--yellow);color:var(--bg)}
+.fstatus{margin-top:.6rem;padding:.6rem .8rem;border-radius:var(--r);font-size:.72rem;white-space:pre-wrap;display:none;line-height:1.5;border:1px solid}
+.fs-ok{background:rgba(86,211,100,.08);border-color:rgba(86,211,100,.25);color:var(--green)}
+.fs-err{background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.25);color:var(--red)}
+.fs-warn{background:rgba(227,179,65,.08);border-color:rgba(227,179,65,.25);color:var(--yellow)}
+
+/* AGENT MANAGE CARD */
+.amc{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.7rem .85rem;display:flex;align-items:center;gap:.65rem;margin-bottom:.45rem}
+.amc-info{flex:1;min-width:0}
+.amc-name{font-size:.82rem;font-weight:600}
+.amc-id{font-size:.67rem;color:var(--muted)}
+.amc-actions{display:flex;gap:.35rem;flex-shrink:0}
+.abtn{font-size:.63rem;padding:2px 7px;background:transparent;border:1px solid;border-radius:3px;cursor:pointer;font-family:var(--font-mono);text-decoration:none;display:inline-block}
+.abtn-yellow{border-color:var(--yellow);color:var(--yellow)}.abtn-yellow:hover{background:rgba(227,179,65,.1)}
+.abtn-blue{border-color:var(--accent2);color:var(--accent2)}.abtn-blue:hover{background:rgba(121,192,255,.08)}
+
+/* soul repair */
+.soul-box{background:var(--s2);border:1px solid rgba(227,179,65,.4);border-radius:var(--r);padding:.85rem;margin-top:.75rem;display:none}
+.soul-box h4{font-size:.72rem;font-weight:600;color:var(--yellow);margin-bottom:.55rem;text-transform:uppercase;letter-spacing:.06em}
+
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="shell">
 
-  <div class="header">
-    <div class="logo">🦀</div>
-    <div><h1>OpenClaw Agent Portal</h1><p>Create &amp; manage local AI agents</p></div>
-    <a class="dbg" href="/api/debug" target="_blank">🔍 debug</a>
-  </div>
-
-  <!-- ROOT CAUSE EXPLANATION -->
-  <div class="insight">
-    <h3>Why agents weren't appearing in Chat — now fixed</h3>
-    <p>
-      The Chat dropdown reads from <code>~/.openclaw/openclaw.json → agents.list</code>.
-      Creating a folder under <code>~/.openclaw/agents/</code> is not enough — the agent must also be registered in that JSON config.
-      This portal now <strong>patches <code>openclaw.json</code> automatically</strong> and restarts the gateway so new agents appear immediately in Chat.
-      For your existing agents (AgentPDF, AppDeveloper, etc.) — click <strong>Register in Config</strong> on each one.
-    </p>
-  </div>
-
-  <div class="grid">
-
-    <!-- CREATE -->
-    <div class="card">
-      <h2>Create New Agent</h2>
-      <label>Agent Name</label>
-      <input type="text" id="cName" placeholder="e.g. QAEngineer">
-      <label>Model</label>
-      <select id="cModel">
-        <option value="ollama/minimax-m2.5:cloud">minimax-m2.5:cloud · ollama</option>
-        <option value="google/gemini-3.1-pro-preview">gemini-3.1-pro-preview · google</option>
-        <option value="google/gemini-3-pro-preview">gemini-3-pro-preview · google</option>
-        <option value="ollama/llama3">llama3 · ollama</option>
-        <option value="ollama/mistral">mistral · ollama</option>
-        <option value="ollama/codellama">codellama · ollama</option>
-      </select>
-      <label>Personality — SOUL.md</label>
-      <textarea id="cSoul" placeholder="# Who You Are&#10;&#10;You are..."></textarea>
-      <button class="btn" id="cBtn" onclick="createAgent()">Create &amp; Register Agent</button>
-      <div class="status" id="cStatus"></div>
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="brand">🦀 OpenClaw</div>
+    <div class="tab-bar">
+      <button class="tab active" onclick="showPanel('task')">Tasks</button>
+      <button class="tab" onclick="showPanel('history')">History</button>
+      <button class="tab" onclick="showPanel('create')">New Agent</button>
+      <button class="tab" onclick="showPanel('manage')">Manage</button>
     </div>
+    <div class="gw-status">
+      <div class="dot dot-checking" id="gwDot"></div>
+      <span id="gwLabel" style="color:var(--muted)">Checking…</span>
+    </div>
+    <a class="dbg" href="/api/debug" target="_blank">debug</a>
+  </header>
 
-    <!-- AGENTS LIST -->
-    <div class="card">
-      <h2>All Agents <span id="agentCount" style="font-weight:400;color:var(--muted)"></span></h2>
-      <div class="alist" id="aList"><div class="empty">Loading…</div></div>
-      <button class="btn btn-ghost" onclick="loadAgents()" style="margin-top:.8rem;font-size:.78rem">↻ Refresh</button>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-section">Agents</div>
+    <div id="sbAgents"></div>
+    <button class="sb-add" onclick="showPanel('create')">＋ New agent</button>
+  </aside>
 
-      <!-- REPAIR SOUL PANEL -->
-      <div class="panel panel-soul" id="soulPanel">
-        <h3>Repair SOUL.md — <span id="soulName" style="color:var(--accent)">—</span></h3>
-        <textarea id="soulText" style="min-height:140px" placeholder="Paste full SOUL.md here…"></textarea>
-        <div class="toggle-row">
-          <input type="checkbox" id="writeGlobal" checked>
-          <p><strong>Also update global SOUL.md</strong> — required for OpenClaw dashboard to show your content</p>
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ── TASK PANEL ── -->
+    <div class="panel active" id="panel-task">
+      <!-- No agent selected -->
+      <div class="empty-task" id="noAgent">
+        <div class="big">🤖</div>
+        <h3>Select an agent</h3>
+        <p>Choose an agent from the sidebar to assign a task</p>
+      </div>
+
+      <!-- Task UI -->
+      <div class="task-pane" id="taskPane" style="display:none">
+        <div class="task-header">
+          <div class="task-av" id="tAvatar"></div>
+          <div>
+            <div class="task-name" id="tName"></div>
+            <div class="task-model" id="tModel"></div>
+          </div>
+          <a class="oc-link" id="tOCLink" href="#" target="_blank">View in OpenClaw ↗</a>
+          <button class="btn-sm" onclick="clearConv()" style="margin-left:.5rem">Clear</button>
         </div>
-        <button class="btn" style="background:var(--gold);color:#000;margin-top:.7rem" onclick="submitSoul()">Save SOUL.md</button>
-        <button class="btn btn-ghost" onclick="closeAll()" style="margin-top:.4rem">Cancel</button>
-        <div class="status" id="soulStatus"></div>
-      </div>
 
-      <!-- REGISTER IN CONFIG PANEL -->
-      <div class="panel panel-reg" id="regPanel">
-        <h3>Register in Config — <span id="regName" style="color:var(--blue)">—</span></h3>
-        <p style="font-size:.78rem;color:#aaa;margin-bottom:.7rem">This adds the agent to <code>openclaw.json</code> so it appears in the Chat dropdown.</p>
-        <label style="margin-top:0">Model for this agent</label>
-        <select id="regModel">
-          <option value="ollama/minimax-m2.5:cloud">minimax-m2.5:cloud · ollama</option>
-          <option value="google/gemini-3.1-pro-preview">gemini-3.1-pro-preview · google</option>
-          <option value="ollama/llama3">llama3 · ollama</option>
-          <option value="ollama/mistral">mistral · ollama</option>
-          <option value="ollama/codellama">codellama · ollama</option>
-        </select>
-        <button class="btn btn-blue" onclick="submitRegister()" style="margin-top:.8rem">Add to openclaw.json + Restart Gateway</button>
-        <button class="btn btn-ghost" onclick="closeAll()" style="margin-top:.4rem">Cancel</button>
-        <div class="status" id="regStatus"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CHAT GUIDE -->
-  <div class="card" style="border-color:rgba(224,90,43,.2)">
-    <h2 style="color:var(--accent)">How to chat with your agent (after registering)</h2>
-    <div class="steps">
-      <div class="step"><div class="step-n">1</div><p>For <strong>existing agents</strong> (AgentPDF, AppDeveloper, etc.) — click <strong>Register in Config</strong> button on each one above. This writes them into <code>openclaw.json</code> and restarts the gateway.</p></div>
-      <div class="step"><div class="step-n">2</div><p>Wait ~5 seconds for gateway to restart, then <strong>refresh the OpenClaw dashboard</strong> in your browser.</p></div>
-      <div class="step"><div class="step-n">3</div><p>Go to <strong>Chat</strong> → click the agent name dropdown (top-left, shows "main") → your agents should now appear there.</p></div>
-      <div class="step"><div class="step-n">4</div><p>Select your agent → start chatting. The badge <span class="badge b-blue" style="font-size:.7rem;display:inline">IN CONFIG ✓</span> in the agent list above confirms it's registered.</p></div>
-      <div class="step"><div class="step-n">5</div><p>To confirm: open <a href="/api/debug" target="_blank" style="color:var(--gold)">localhost:3000/api/debug</a> and check <code>configAgentsList</code> — that's exactly what Chat reads.</p></div>
-    </div>
-  </div>
-
-</div>
-<script>
-let activeSoulAgent = null;
-let activeRegAgent  = null;
-
-async function loadAgents() {
-    const list = document.getElementById('aList');
-    list.innerHTML = '<div class="empty">Loading…</div>';
-    try {
-        const agents = await (await fetch('/api/agents')).json();
-        document.getElementById('agentCount').textContent = `(${agents.length})`;
-        if (!agents.length) { list.innerHTML = '<div class="empty">No agents found.</div>'; return; }
-        list.innerHTML = agents.map(a => `
-            <div class="aitem">
-                <div class="arow">
-                    <div class="aicon">🤖</div>
-                    <div class="aname">${a.name}</div>
-                    <div class="badges">
-                        <span class="badge ${a.hasSoul   ? 'b-ok'   : 'b-bad'}">${a.hasSoul   ? 'SOUL ✓' : 'SOUL ✗'}</span>
-                        <span class="badge ${a.inConfig  ? 'b-blue' : 'b-gray'}">${a.inConfig  ? 'IN CONFIG ✓' : 'NOT IN CONFIG'}</span>
-                    </div>
-                    <button class="abtn abtn-gold" onclick="openSoul('${a.name}')">Soul</button>
-                    ${!a.inConfig ? `<button class="abtn abtn-blue" onclick="openReg('${a.name}')">Register</button>` : ''}
-                </div>
-                ${a.soulPreview ? `<div class="ameta">${a.soulPreview.replace(/\n/g,' ').substring(0,70)}…</div>` : ''}
+        <div class="task-body">
+          <div class="response-wrap">
+            <!-- Response -->
+            <div class="response-box" id="respBox">
+              <div class="response-placeholder" id="respPlaceholder">Agent response will stream here…</div>
+              <div class="response-text" id="respText" style="display:none"></div>
             </div>
-        `).join('');
-    } catch { list.innerHTML = '<div class="empty" style="color:var(--err)">Failed to load</div>'; }
+
+            <!-- Debug log toggle -->
+            <div class="debug-bar" onclick="toggleDebug()">
+              <span>🔍 WS Debug Log</span>
+              <span id="logCount" style="color:var(--accent2)"></span>
+              <span class="toggle" id="debugToggleLabel">▼ show</span>
+            </div>
+            <div class="debug-log" id="debugLog"></div>
+
+            <!-- Status -->
+            <div class="status-bar">
+              <div class="sdot sd-idle" id="sdot"></div>
+              <span id="slabel">Ready</span>
+              <span style="margin-left:auto;font-size:.65rem" id="charCount"></span>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="input-row">
+            <textarea class="task-input" id="taskInput"
+              placeholder="Describe the task…&#10;&#10;e.g. Review the auth module for security vulnerabilities."
+              onkeydown="handleKey(event)"></textarea>
+            <div class="input-btns">
+              <button class="btn-send" id="sendBtn" onclick="sendTask()">Send ↵</button>
+              <button class="btn-sm" onclick="clearResp()">Clear resp</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── HISTORY ── -->
+    <div class="panel" id="panel-history">
+      <div class="panel-scroll">
+        <div class="section-title">Task History</div>
+        <div id="histList"></div>
+      </div>
+    </div>
+
+    <!-- ── CREATE ── -->
+    <div class="panel" id="panel-create">
+      <div class="panel-scroll">
+        <div class="section-title">Create New Agent</div>
+        <div class="form-row">
+          <div class="fg"><label class="fl">Agent Name</label><input class="fi" id="cName" placeholder="e.g. QAEngineer"></div>
+          <div class="fg"><label class="fl">Model</label>
+            <select class="fs" id="cModel">
+              <option value="ollama/minimax-m2.5:cloud">minimax-m2.5:cloud</option>
+              <option value="google/gemini-3.1-pro-preview">gemini-3.1-pro-preview</option>
+              <option value="google/gemini-3-pro-preview">gemini-3-pro-preview</option>
+              <option value="ollama/llama3">llama3</option>
+              <option value="ollama/mistral">mistral</option>
+              <option value="ollama/codellama">codellama</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg"><label class="fl">Personality — SOUL.md</label>
+          <textarea class="ft" id="cSoul" placeholder="# Who You Are&#10;&#10;You are [Name], a specialized AI agent focused on..."></textarea>
+        </div>
+        <button class="btn-primary" id="createBtn" onclick="createAgent()">Create &amp; Register Agent</button>
+        <div class="fstatus" id="createStatus"></div>
+      </div>
+    </div>
+
+    <!-- ── MANAGE ── -->
+    <div class="panel" id="panel-manage">
+      <div class="panel-scroll">
+        <div class="section-title">Manage Agents</div>
+        <div id="manageList"></div>
+        <div style="display:flex;gap:.5rem;margin-top:.75rem">
+          <button class="btn-primary btn-green" onclick="fixAll()">⚡ Fix All Configs</button>
+          <button class="btn-sm" onclick="loadAgents()" style="padding:.5rem .9rem">↻ Refresh</button>
+        </div>
+        <div class="fstatus" id="fixStatus"></div>
+        <div class="soul-box" id="soulBox">
+          <h4>Edit SOUL.md — <span id="soulBoxName" style="color:var(--accent)"></span></h4>
+          <textarea class="ft" id="soulText" style="min-height:120px" placeholder="Paste full SOUL.md here…"></textarea>
+          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
+            <label style="display:flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--muted);cursor:pointer">
+              <input type="checkbox" id="globalSoul" checked style="accent-color:var(--yellow)"> Update global SOUL.md too
+            </label>
+            <button class="btn-primary btn-yellow" onclick="submitSoul()" style="margin-left:auto;margin-top:0">Save</button>
+            <button class="btn-sm" onclick="closeSoul()">Cancel</button>
+          </div>
+          <div class="fstatus" id="soulStatus"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── STATE ──
+let agents        = [];
+let selected      = null;
+let streaming     = false;
+let soulAgentId   = null;
+let debugOpen     = false;
+let logLines      = [];
+
+const COLORS = [
+  ['#f78166','#2d1010'],['#79c0ff','#0d1f2d'],['#56d364','#0d2110'],
+  ['#bc8cff','#1a0d2d'],['#e3b341','#2d1e0d'],['#58a6ff','#0d1a2d'],
+  ['#3fb950','#0d200f'],['#ff7b72','#2d0f0d'],
+];
+const color  = id  => COLORS[id.charCodeAt(0) % COLORS.length];
+const init   = name => (name||'?')[0].toUpperCase();
+const escape = t   => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ── PANELS ──
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  ['task','history','create','manage'].forEach((n,i) =>
+    document.querySelectorAll('.tab')[i].classList.toggle('active', n===name));
+  if (name==='history') loadHistory();
+  if (name==='manage')  renderManage();
 }
 
-function closeAll() {
-    document.getElementById('soulPanel').style.display = 'none';
-    document.getElementById('regPanel').style.display  = 'none';
-    activeSoulAgent = activeRegAgent = null;
+// ── GATEWAY STATUS ──
+async function checkGateway() {
+  const dot = document.getElementById('gwDot');
+  const lbl = document.getElementById('gwLabel');
+  try {
+    const d = await fetch('/api/debug').then(r=>r.json());
+    dot.className='dot dot-online';
+    lbl.textContent=`Online · ${d.configAgentsList?.length||0} agents`;
+  } catch {
+    dot.className='dot dot-offline';
+    lbl.textContent='Gateway offline';
+  }
 }
 
-function openSoul(name) {
-    closeAll();
-    activeSoulAgent = name;
-    document.getElementById('soulName').textContent = name;
-    document.getElementById('soulText').value = '';
-    document.getElementById('soulStatus').style.display = 'none';
-    document.getElementById('soulPanel').style.display = 'block';
-    document.getElementById('soulPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+// ── LOAD AGENTS ──
+async function loadAgents() {
+  try { agents = await fetch('/api/agents').then(r=>r.json()); }
+  catch { agents=[]; }
+  renderSidebar();
+  renderManage();
 }
 
-function openReg(name) {
-    closeAll();
-    activeRegAgent = name;
-    document.getElementById('regName').textContent = name;
-    document.getElementById('regStatus').style.display = 'none';
-    document.getElementById('regPanel').style.display = 'block';
-    document.getElementById('regPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+function renderSidebar() {
+  const el = document.getElementById('sbAgents');
+  if (!agents.length) { el.innerHTML='<div style="padding:.4rem .5rem;font-size:.74rem;color:var(--muted)">No agents</div>'; return; }
+  el.innerHTML = agents.map(a => {
+    const [fg,bg] = color(a.id);
+    const ok = a.inConfig && a.workspaceOk;
+    return `<button class="agent-btn${selected?.id===a.id?' selected':''}" onclick="selectAgent('${a.id}')">
+      <div class="av" style="background:${bg};color:${fg}">${init(a.name)}</div>
+      <span class="abn">${a.name}</span>
+      <span class="abadge ${ok?'b-ok':'b-err'}">${ok?'✓':'!'}</span>
+    </button>`;
+  }).join('');
 }
+
+// ── SELECT AGENT ──
+function selectAgent(id) {
+  selected = agents.find(a=>a.id===id);
+  if (!selected) return;
+  renderSidebar();
+  const [fg,bg] = color(selected.id);
+  document.getElementById('tAvatar').style.cssText = `background:${bg};color:${fg}`;
+  document.getElementById('tAvatar').textContent = init(selected.name);
+  document.getElementById('tName').textContent    = selected.name;
+  document.getElementById('tModel').textContent   = selected.model;
+  document.getElementById('tOCLink').href = `http://127.0.0.1:18789/chat?session=agent:${selected.id}:main`;
+  document.getElementById('noAgent').style.display = 'none';
+  document.getElementById('taskPane').style.display = 'flex';
+  clearResp();
+  showPanel('task');
+}
+
+// ── DEBUG LOG ──
+function addLog(msg, type='') {
+  logLines.push({msg, type});
+  const el = document.getElementById('debugLog');
+  const div = document.createElement('div');
+  div.className = `log-line ${type}`;
+  div.textContent = msg;
+  el.appendChild(div);
+  el.scrollTop = 99999;
+  document.getElementById('logCount').textContent = `(${logLines.length})`;
+}
+
+function clearLogs() {
+  logLines=[];
+  document.getElementById('debugLog').innerHTML='';
+  document.getElementById('logCount').textContent='';
+}
+
+function toggleDebug() {
+  debugOpen = !debugOpen;
+  document.getElementById('debugLog').classList.toggle('open', debugOpen);
+  document.getElementById('debugToggleLabel').textContent = debugOpen ? '▲ hide' : '▼ show';
+  // Auto-open on error
+}
+
+// ── STATUS ──
+function setStatus(type, text) {
+  const d = document.getElementById('sdot');
+  d.className = `sdot sd-${type==='work'?'work':type==='done'?'done':type==='err'?'err':'idle'}`;
+  document.getElementById('slabel').textContent = text;
+}
+
+// ── SEND TASK ──
+function handleKey(e) {
+  if (e.key==='Enter' && (e.metaKey||e.ctrlKey)) { e.preventDefault(); sendTask(); }
+}
+
+async function sendTask() {
+  if (!selected || streaming) return;
+  const task = document.getElementById('taskInput').value.trim();
+  if (!task) return;
+
+  streaming = true;
+  clearLogs();
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('sendBtn').textContent = 'Sending…';
+  document.getElementById('taskInput').value = '';
+
+  setStatus('work', 'Connecting to agent…');
+  document.getElementById('respPlaceholder').style.display = 'none';
+  const respText = document.getElementById('respText');
+  respText.style.display = 'block';
+  respText.innerHTML = '<span class="cursor"></span>';
+  document.getElementById('respBox').classList.add('streaming');
+
+  let fullResponse = '';
+  let charCount    = 0;
+
+  addLog(`Sending to agent: ${selected.id}`, '');
+  addLog(`Task: ${task.substring(0,60)}…`, '');
+
+  try {
+    const res = await fetch('/api/task', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ agentId: selected.id, task }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status} ${await res.text()}`);
+    }
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let   buf     = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        if (raw === '[DONE]') continue;
+        if (!raw) continue;
+
+        let parsed;
+        try { parsed = JSON.parse(raw); } catch { continue; }
+
+        // WS debug log from server
+        if (parsed.log) {
+          const isErr = parsed.log.includes('ERROR') || parsed.log.includes('error');
+          const isOk  = parsed.log.includes('✓') || parsed.log.includes('OK') || parsed.log.includes('accepted');
+          addLog(parsed.log, isErr?'err':isOk?'ok':'');
+          // Auto-open debug log if we see an error
+          if (isErr && !debugOpen) toggleDebug();
+          continue;
+        }
+
+        // Text chunk
+        if (parsed.chunk !== undefined) {
+          fullResponse += parsed.chunk;
+          charCount    += parsed.chunk.length;
+          respText.innerHTML = escape(fullResponse) + '<span class="cursor"></span>';
+          document.getElementById('respBox').scrollTop = 999999;
+          document.getElementById('charCount').textContent = `${charCount} chars`;
+          continue;
+        }
+
+        // Error
+        if (parsed.error) {
+          addLog(`ERROR: ${parsed.error}`, 'err');
+          if (!debugOpen) toggleDebug();
+          fullResponse = `⚠ ${parsed.error}`;
+          respText.innerHTML = escape(fullResponse);
+          setStatus('err', 'Error — check debug log above');
+          break;
+        }
+
+        // Done
+        if (parsed.done) {
+          addLog('Task complete ✓', 'ok');
+          break;
+        }
+      }
+    }
+
+    if (!fullResponse.startsWith('⚠')) {
+      respText.innerHTML = escape(fullResponse) || '<span style="color:var(--muted);font-style:italic">Agent returned empty response</span>';
+      setStatus('done', `Done · ${new Date().toLocaleTimeString()}`);
+      // Save to history
+      await fetch('/api/tasks/save', {
+        method:  'POST',
+        headers: {'Content-Type':'application/json'},
+        body:    JSON.stringify({ agentId:selected.id, agentName:selected.name, task, response:fullResponse, status:'done' }),
+      }).catch(()=>{});
+    }
+
+  } catch(err) {
+    addLog(`FATAL: ${err.message}`, 'err');
+    if (!debugOpen) toggleDebug();
+    respText.innerHTML = `⚠ ${escape(err.message)}`;
+    setStatus('err', 'Error');
+  }
+
+  document.getElementById('respBox').classList.remove('streaming');
+  streaming = false;
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('sendBtn').textContent = 'Send ↵';
+}
+
+function clearResp() {
+  document.getElementById('respPlaceholder').style.display='block';
+  document.getElementById('respText').style.display='none';
+  document.getElementById('respText').innerHTML='';
+  document.getElementById('respBox').classList.remove('streaming');
+  document.getElementById('charCount').textContent='';
+  setStatus('idle','Ready');
+}
+
+function clearConv() { clearResp(); clearLogs(); }
+
+// ── HISTORY ──
+async function loadHistory() {
+  const tasks = await fetch('/api/tasks').then(r=>r.json()).catch(()=>[]);
+  const el    = document.getElementById('histList');
+  if (!tasks.length) {
+    el.innerHTML='<div style="color:var(--muted);font-size:.8rem;text-align:center;padding:2rem">No tasks yet</div>';
+    return;
+  }
+  el.innerHTML = tasks.map(t => {
+    const [fg,bg] = color(t.agentId||'a');
+    return `<div class="history-card" onclick="replayTask('${t.id}')">
+      <div class="hc-top">
+        <div class="hc-av" style="background:${bg};color:${fg}">${init(t.agentName||'?')}</div>
+        <span class="hc-name">${t.agentName}</span>
+        <span class="hc-time">${new Date(t.createdAt).toLocaleString()}</span>
+      </div>
+      <div class="hc-task">📤 ${escape(t.task)}</div>
+      <div class="hc-resp">💬 ${escape((t.response||'').substring(0,100))}…</div>
+    </div>`;
+  }).join('');
+}
+
+async function replayTask(id) {
+  const tasks = await fetch('/api/tasks').then(r=>r.json()).catch(()=>[]);
+  const t = tasks.find(x=>x.id===id);
+  if (!t) return;
+  const agent = agents.find(a=>a.id===t.agentId);
+  if (agent) selectAgent(agent.id);
+  document.getElementById('respText').innerHTML = escape(t.response||'');
+  document.getElementById('respText').style.display='block';
+  document.getElementById('respPlaceholder').style.display='none';
+  setStatus('done', `From history · ${new Date(t.createdAt).toLocaleString()}`);
+  showPanel('task');
+}
+
+// ── CREATE AGENT ──
+async function createAgent() {
+  const name=document.getElementById('cName').value.trim();
+  const model=document.getElementById('cModel').value;
+  const soul=document.getElementById('cSoul').value.trim();
+  const btn=document.getElementById('createBtn');
+  const st=document.getElementById('createStatus');
+  if (!name||!soul) return showFS(st,'Name and SOUL are required.','err');
+  btn.disabled=true; btn.textContent='Creating…'; st.style.display='none';
+  try {
+    const res=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model,soul})});
+    const d=await res.json();
+    showFS(st,`${res.ok?'✅':'⚠️'} ${d.message||d.error}\n\nCLI: ${d.cliResult?.stdout||d.cliResult?.error||''}\n\nNow click the agent in the sidebar.`,res.ok?'ok':'warn');
+    if (res.ok){document.getElementById('cName').value='';document.getElementById('cSoul').value='';await loadAgents();}
+  } catch { showFS(st,'❌ Network error','err'); }
+  finally { btn.disabled=false; btn.textContent='Create & Register Agent'; }
+}
+
+// ── MANAGE ──
+function renderManage() {
+  const el=document.getElementById('manageList');
+  if (!agents.length) { el.innerHTML='<div style="color:var(--muted);font-size:.8rem">No agents found.</div>'; return; }
+  el.innerHTML = agents.map(a => {
+    const [fg,bg]=color(a.id);
+    return `<div class="amc">
+      <div class="av" style="background:${bg};color:${fg};width:28px;height:28px;border-radius:6px;font-size:.8rem">${init(a.name)}</div>
+      <div class="amc-info">
+        <div class="amc-name">${a.name} <span style="font-weight:400;color:var(--muted);font-size:.67rem">${a.id}</span></div>
+        <div class="amc-id">${a.model} · ${a.inConfig&&a.workspaceOk?'<span style="color:var(--green)">config ✓</span>':'<span style="color:var(--red)">config ✗</span>'} · ${a.hasSoul?'<span style="color:var(--green)">soul ✓</span>':'<span style="color:var(--red)">soul ✗</span>'}</div>
+      </div>
+      <div class="amc-actions">
+        <button class="abtn abtn-yellow" onclick="openSoul('${a.id}','${a.name}')">Edit Soul</button>
+        <a class="abtn abtn-blue" href="http://127.0.0.1:18789/chat?session=agent:${a.id}:main" target="_blank">Open Chat ↗</a>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function fixAll() {
+  const st=document.getElementById('fixStatus');
+  showFS(st,'Fixing all configs… please wait.','warn');
+  try {
+    const d=await fetch('/api/fix-all',{method:'POST'}).then(r=>r.json());
+    showFS(st,`✅ ${d.message}\n\nCLI:\n${d.cli}`,'ok');
+    await loadAgents();
+  } catch { showFS(st,'❌ Error','err'); }
+}
+
+function openSoul(id,name) {
+  soulAgentId=id;
+  document.getElementById('soulBoxName').textContent=name;
+  document.getElementById('soulText').value='';
+  document.getElementById('soulStatus').style.display='none';
+  document.getElementById('soulBox').style.display='block';
+  document.getElementById('soulText').focus();
+  document.getElementById('soulBox').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closeSoul() { document.getElementById('soulBox').style.display='none'; soulAgentId=null; }
 
 async function submitSoul() {
-    const soul        = document.getElementById('soulText').value.trim();
-    const writeGlobal = document.getElementById('writeGlobal').checked;
-    const st          = document.getElementById('soulStatus');
-    if (!soul) return show(st, 'Paste your SOUL.md content.', 's-err');
-    try {
-        const res  = await fetch(`/api/agents/${encodeURIComponent(activeSoulAgent)}/soul`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({soul, writeGlobal})
-        });
-        const d = await res.json();
-        show(st, res.ok
-            ? `✅ ${d.message}\n\n${JSON.stringify(d.results,null,2)}\n\nRefresh OpenClaw dashboard → check SOUL tab.`
-            : `❌ ${d.error}`, res.ok ? 's-ok' : 's-err');
-        if (res.ok) loadAgents();
-    } catch { show(st,'❌ Network error','s-err'); }
+  const soul=document.getElementById('soulText').value.trim();
+  const writeGlobal=document.getElementById('globalSoul').checked;
+  const st=document.getElementById('soulStatus');
+  if (!soul) return showFS(st,'Paste SOUL.md content first.','err');
+  try {
+    const res=await fetch(`/api/agents/${encodeURIComponent(soulAgentId)}/soul`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul,writeGlobal})});
+    const d=await res.json();
+    showFS(st,res.ok?`✅ ${d.message}`:`❌ ${d.error}`,res.ok?'ok':'err');
+    if (res.ok) setTimeout(closeSoul,1500);
+  } catch { showFS(st,'❌ Network error','err'); }
 }
 
-async function submitRegister() {
-    const model = document.getElementById('regModel').value;
-    const st    = document.getElementById('regStatus');
-    show(st, 'Patching openclaw.json and restarting gateway…', 's-warn');
-    try {
-        const res = await fetch(`/api/agents/${encodeURIComponent(activeRegAgent)}/register`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({model})
-        });
-        const d = await res.json();
-        show(st, res.ok
-            ? `✅ ${d.message}\n\nRefresh OpenClaw dashboard in ~5 seconds → go to Chat → check dropdown.`
-            : `❌ ${d.error}`, res.ok ? 's-ok' : 's-err');
-        if (res.ok) { loadAgents(); setTimeout(closeAll, 3000); }
-    } catch { show(st,'❌ Network error','s-err'); }
-}
+function showFS(el,msg,type) { el.textContent=msg; el.className=`fstatus fs-${type}`; el.style.display='block'; }
 
-async function createAgent() {
-    const name  = document.getElementById('cName').value.trim();
-    const model = document.getElementById('cModel').value;
-    const soul  = document.getElementById('cSoul').value.trim();
-    const btn   = document.getElementById('cBtn');
-    const st    = document.getElementById('cStatus');
-    if (!name||!soul) return show(st,'Name and SOUL are required.','s-err');
-    btn.disabled=true; btn.textContent='Creating…'; st.style.display='none';
-    try {
-        const res = await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model,soul})});
-        const d   = await res.json();
-        const type = res.status===207?'s-warn':res.ok?'s-ok':'s-err';
-        show(st,
-            `${res.ok?'✅':res.status===207?'⚠️':'❌'} ${d.message||d.warning||d.error}\n\n` +
-            `Config patched: ${JSON.stringify(d.configPatch)}\n` +
-            `SOUL correct: ${d.soulWrittenCorrectly}\n\n` +
-            (d.nextStep||''),
-            type);
-        if (res.ok||res.status===207){ document.getElementById('cName').value=''; document.getElementById('cSoul').value=''; loadAgents(); }
-    } catch { show(st,'❌ Network error','s-err'); }
-    finally { btn.disabled=false; btn.textContent='Create & Register Agent'; }
-}
-
-function show(el,msg,cls){el.textContent=msg;el.className='status '+cls;el.style.display='block';}
-loadAgents();
+// ── INIT ──
+(async()=>{
+  await checkGateway();
+  await loadAgents();
+  setInterval(checkGateway, 30000);
+})();
 </script>
 </body>
 </html>
