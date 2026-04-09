@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw Portal</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f0f11;--surface:#17171a;--card:#1c1c20;--border:#2a2a30;--accent:#e05a2b;--gold:#f0a500;--text:#e8e8ec;--muted:#6b6b78;--ok:#2dbe6c;--err:#e0432b;--warn:#f0a500;--blue:#4a9eff;--r:8px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:1.5rem 1rem}
+.wrap{max-width:1020px;margin:0 auto;display:flex;flex-direction:column;gap:1.2rem}
+.header{display:flex;align-items:center;gap:12px;padding-bottom:1.2rem;border-bottom:1px solid var(--border)}
+.logo{width:38px;height:38px;background:var(--accent);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.header h1{font-size:1.15rem;font-weight:600}
+.header p{font-size:.75rem;color:var(--muted);margin-top:2px}
+.dbg{margin-left:auto;font-size:.7rem;font-family:monospace;color:var(--gold);border:1px solid var(--gold);padding:3px 9px;border-radius:4px;text-decoration:none;opacity:.7}
+.dbg:hover{opacity:1}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+@media(max-width:680px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.3rem}
+.card h2{font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:1.1rem}
+label{display:block;font-size:.72rem;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 .3rem}
+label:first-of-type{margin-top:0}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:inherit;font-size:.88rem;padding:.6rem .8rem;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{font-family:monospace;font-size:.78rem;resize:vertical;min-height:120px;line-height:1.55}
+select option{background:#1a1a1f}
+.btn{display:block;width:100%;margin-top:1rem;padding:.7rem;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:.88rem;font-weight:600;cursor:pointer;transition:background .15s}
+.btn:hover{background:#c94d22}
+.btn:disabled{background:#3a3a3a;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{background:var(--card);color:var(--text)}
+.btn-blue{background:rgba(74,158,255,.15);border:1px solid rgba(74,158,255,.4);color:var(--blue)}
+.btn-blue:hover{background:rgba(74,158,255,.25)}
+.status{margin-top:.9rem;padding:.7rem .9rem;border-radius:var(--r);font-size:.75rem;font-family:monospace;white-space:pre-wrap;display:none;word-break:break-all;line-height:1.5}
+.s-ok{background:rgba(45,190,108,.1);border:1px solid rgba(45,190,108,.3);color:var(--ok)}
+.s-err{background:rgba(224,67,43,.1);border:1px solid rgba(224,67,43,.3);color:var(--err)}
+.s-warn{background:rgba(240,165,0,.1);border:1px solid rgba(240,165,0,.3);color:var(--warn)}
+
+/* agent list */
+.alist{display:flex;flex-direction:column;gap:.5rem}
+.aitem{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:.65rem .85rem}
+.arow{display:flex;align-items:center;gap:.6rem}
+.aicon{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--gold));display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0}
+.aname{font-size:.87rem;font-weight:600;flex:1;min-width:0}
+.badges{display:flex;gap:.3rem;align-items:center;margin-left:auto}
+.badge{font-size:.6rem;font-family:monospace;padding:2px 5px;border-radius:3px}
+.b-ok{background:rgba(45,190,108,.12);color:var(--ok);border:1px solid rgba(45,190,108,.3)}
+.b-bad{background:rgba(224,67,43,.12);color:var(--err);border:1px solid rgba(224,67,43,.3)}
+.b-blue{background:rgba(74,158,255,.12);color:var(--blue);border:1px solid rgba(74,158,255,.3)}
+.b-gray{background:rgba(107,107,120,.12);color:var(--muted);border:1px solid rgba(107,107,120,.3)}
+.abtn{font-size:.65rem;padding:2px 7px;background:transparent;border:1px solid;border-radius:3px;cursor:pointer;font-family:inherit;flex-shrink:0}
+.abtn-gold{border-color:var(--gold);color:var(--gold)}.abtn-gold:hover{background:rgba(240,165,0,.1)}
+.abtn-blue{border-color:var(--blue);color:var(--blue)}.abtn-blue:hover{background:rgba(74,158,255,.1)}
+.ameta{font-size:.67rem;color:var(--muted);margin-top:4px;font-family:monospace;padding-left:34px}
+.empty{color:var(--muted);font-size:.82rem;text-align:center;padding:1.5rem 0}
+
+/* panels */
+.panel{background:var(--card);border-radius:var(--r);padding:1rem;margin-top:.8rem;display:none}
+.panel-soul{border:1px solid rgba(240,165,0,.3)}
+.panel-reg{border:1px solid rgba(74,158,255,.3)}
+.panel h3{font-size:.73rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.7rem}
+.panel-soul h3{color:var(--gold)}
+.panel-reg h3{color:var(--blue)}
+.toggle-row{display:flex;align-items:center;gap:.6rem;margin-top:.7rem;padding:.55rem .75rem;background:rgba(240,165,0,.06);border:1px solid rgba(240,165,0,.2);border-radius:6px}
+.toggle-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--gold);flex-shrink:0}
+.toggle-row p{font-size:.73rem;color:#bbb;line-height:1.4}
+.toggle-row strong{color:var(--gold)}
+
+/* insight */
+.insight{background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.25);border-radius:var(--r);padding:1rem 1.1rem}
+.insight h3{font-size:.75rem;font-weight:600;color:var(--blue);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.05em}
+.insight p{font-size:.82rem;color:#bbb;line-height:1.65}
+code{font-size:.73rem;background:var(--bg);border:1px solid var(--border);padding:1px 5px;border-radius:4px;font-family:monospace;color:var(--gold)}
+
+/* steps */
+.steps{display:flex;flex-direction:column;gap:.65rem;margin-top:.4rem}
+.step{display:flex;gap:.75rem;align-items:flex-start}
+.step-n{width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step p{font-size:.81rem;line-height:1.6;color:#bbb}
+.step p strong{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo">🦀</div>
+    <div><h1>OpenClaw Agent Portal</h1><p>Create &amp; manage local AI agents</p></div>
+    <a class="dbg" href="/api/debug" target="_blank">🔍 debug</a>
+  </div>
+
+  <!-- ROOT CAUSE EXPLANATION -->
+  <div class="insight">
+    <h3>Why agents weren't appearing in Chat — now fixed</h3>
+    <p>
+      The Chat dropdown reads from <code>~/.openclaw/openclaw.json → agents.list</code>.
+      Creating a folder under <code>~/.openclaw/agents/</code> is not enough — the agent must also be registered in that JSON config.
+      This portal now <strong>patches <code>openclaw.json</code> automatically</strong> and restarts the gateway so new agents appear immediately in Chat.
+      For your existing agents (AgentPDF, AppDeveloper, etc.) — click <strong>Register in Config</strong> on each one.
+    </p>
+  </div>
+
+  <div class="grid">
+
+    <!-- CREATE -->
+    <div class="card">
+      <h2>Create New Agent</h2>
+      <label>Agent Name</label>
+      <input type="text" id="cName" placeholder="e.g. QAEngineer">
+      <label>Model</label>
+      <select id="cModel">
+        <option value="ollama/minimax-m2.5:cloud">minimax-m2.5:cloud · ollama</option>
+        <option value="google/gemini-3.1-pro-preview">gemini-3.1-pro-preview · google</option>
+        <option value="google/gemini-3-pro-preview">gemini-3-pro-preview · google</option>
+        <option value="ollama/llama3">llama3 · ollama</option>
+        <option value="ollama/mistral">mistral · ollama</option>
+        <option value="ollama/codellama">codellama · ollama</option>
+      </select>
+      <label>Personality — SOUL.md</label>
+      <textarea id="cSoul" placeholder="# Who You Are&#10;&#10;You are..."></textarea>
+      <button class="btn" id="cBtn" onclick="createAgent()">Create &amp; Register Agent</button>
+      <div class="status" id="cStatus"></div>
+    </div>
+
+    <!-- AGENTS LIST -->
+    <div class="card">
+      <h2>All Agents <span id="agentCount" style="font-weight:400;color:var(--muted)"></span></h2>
+      <div class="alist" id="aList"><div class="empty">Loading…</div></div>
+      <button class="btn btn-ghost" onclick="loadAgents()" style="margin-top:.8rem;font-size:.78rem">↻ Refresh</button>
+
+      <!-- REPAIR SOUL PANEL -->
+      <div class="panel panel-soul" id="soulPanel">
+        <h3>Repair SOUL.md — <span id="soulName" style="color:var(--accent)">—</span></h3>
+        <textarea id="soulText" style="min-height:140px" placeholder="Paste full SOUL.md here…"></textarea>
+        <div class="toggle-row">
+          <input type="checkbox" id="writeGlobal" checked>
+          <p><strong>Also update global SOUL.md</strong> — required for OpenClaw dashboard to show your content</p>
+        </div>
+        <button class="btn" style="background:var(--gold);color:#000;margin-top:.7rem" onclick="submitSoul()">Save SOUL.md</button>
+        <button class="btn btn-ghost" onclick="closeAll()" style="margin-top:.4rem">Cancel</button>
+        <div class="status" id="soulStatus"></div>
+      </div>
+
+      <!-- REGISTER IN CONFIG PANEL -->
+      <div class="panel panel-reg" id="regPanel">
+        <h3>Register in Config — <span id="regName" style="color:var(--blue)">—</span></h3>
+        <p style="font-size:.78rem;color:#aaa;margin-bottom:.7rem">This adds the agent to <code>openclaw.json</code> so it appears in the Chat dropdown.</p>
+        <label style="margin-top:0">Model for this agent</label>
+        <select id="regModel">
+          <option value="ollama/minimax-m2.5:cloud">minimax-m2.5:cloud · ollama</option>
+          <option value="google/gemini-3.1-pro-preview">gemini-3.1-pro-preview · google</option>
+          <option value="ollama/llama3">llama3 · ollama</option>
+          <option value="ollama/mistral">mistral · ollama</option>
+          <option value="ollama/codellama">codellama · ollama</option>
+        </select>
+        <button class="btn btn-blue" onclick="submitRegister()" style="margin-top:.8rem">Add to openclaw.json + Restart Gateway</button>
+        <button class="btn btn-ghost" onclick="closeAll()" style="margin-top:.4rem">Cancel</button>
+        <div class="status" id="regStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT GUIDE -->
+  <div class="card" style="border-color:rgba(224,90,43,.2)">
+    <h2 style="color:var(--accent)">How to chat with your agent (after registering)</h2>
+    <div class="steps">
+      <div class="step"><div class="step-n">1</div><p>For <strong>existing agents</strong> (AgentPDF, AppDeveloper, etc.) — click <strong>Register in Config</strong> button on each one above. This writes them into <code>openclaw.json</code> and restarts the gateway.</p></div>
+      <div class="step"><div class="step-n">2</div><p>Wait ~5 seconds for gateway to restart, then <strong>refresh the OpenClaw dashboard</strong> in your browser.</p></div>
+      <div class="step"><div class="step-n">3</div><p>Go to <strong>Chat</strong> → click the agent name dropdown (top-left, shows "main") → your agents should now appear there.</p></div>
+      <div class="step"><div class="step-n">4</div><p>Select your agent → start chatting. The badge <span class="badge b-blue" style="font-size:.7rem;display:inline">IN CONFIG ✓</span> in the agent list above confirms it's registered.</p></div>
+      <div class="step"><div class="step-n">5</div><p>To confirm: open <a href="/api/debug" target="_blank" style="color:var(--gold)">localhost:3000/api/debug</a> and check <code>configAgentsList</code> — that's exactly what Chat reads.</p></div>
+    </div>
+  </div>
+
+</div>
+<script>
+let activeSoulAgent = null;
+let activeRegAgent  = null;
+
+async function loadAgents() {
+    const list = document.getElementById('aList');
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+        const agents = await (await fetch('/api/agents')).json();
+        document.getElementById('agentCount').textContent = `(${agents.length})`;
+        if (!agents.length) { list.innerHTML = '<div class="empty">No agents found.</div>'; return; }
+        list.innerHTML = agents.map(a => `
+            <div class="aitem">
+                <div class="arow">
+                    <div class="aicon">🤖</div>
+                    <div class="aname">${a.name}</div>
+                    <div class="badges">
+                        <span class="badge ${a.hasSoul   ? 'b-ok'   : 'b-bad'}">${a.hasSoul   ? 'SOUL ✓' : 'SOUL ✗'}</span>
+                        <span class="badge ${a.inConfig  ? 'b-blue' : 'b-gray'}">${a.inConfig  ? 'IN CONFIG ✓' : 'NOT IN CONFIG'}</span>
+                    </div>
+                    <button class="abtn abtn-gold" onclick="openSoul('${a.name}')">Soul</button>
+                    ${!a.inConfig ? `<button class="abtn abtn-blue" onclick="openReg('${a.name}')">Register</button>` : ''}
+                </div>
+                ${a.soulPreview ? `<div class="ameta">${a.soulPreview.replace(/\n/g,' ').substring(0,70)}…</div>` : ''}
+            </div>
+        `).join('');
+    } catch { list.innerHTML = '<div class="empty" style="color:var(--err)">Failed to load</div>'; }
+}
+
+function closeAll() {
+    document.getElementById('soulPanel').style.display = 'none';
+    document.getElementById('regPanel').style.display  = 'none';
+    activeSoulAgent = activeRegAgent = null;
+}
+
+function openSoul(name) {
+    closeAll();
+    activeSoulAgent = name;
+    document.getElementById('soulName').textContent = name;
+    document.getElementById('soulText').value = '';
+    document.getElementById('soulStatus').style.display = 'none';
+    document.getElementById('soulPanel').style.display = 'block';
+    document.getElementById('soulPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function openReg(name) {
+    closeAll();
+    activeRegAgent = name;
+    document.getElementById('regName').textContent = name;
+    document.getElementById('regStatus').style.display = 'none';
+    document.getElementById('regPanel').style.display = 'block';
+    document.getElementById('regPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function submitSoul() {
+    const soul        = document.getElementById('soulText').value.trim();
+    const writeGlobal = document.getElementById('writeGlobal').checked;
+    const st          = document.getElementById('soulStatus');
+    if (!soul) return show(st, 'Paste your SOUL.md content.', 's-err');
+    try {
+        const res  = await fetch(`/api/agents/${encodeURIComponent(activeSoulAgent)}/soul`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({soul, writeGlobal})
+        });
+        const d = await res.json();
+        show(st, res.ok
+            ? `✅ ${d.message}\n\n${JSON.stringify(d.results,null,2)}\n\nRefresh OpenClaw dashboard → check SOUL tab.`
+            : `❌ ${d.error}`, res.ok ? 's-ok' : 's-err');
+        if (res.ok) loadAgents();
+    } catch { show(st,'❌ Network error','s-err'); }
+}
+
+async function submitRegister() {
+    const model = document.getElementById('regModel').value;
+    const st    = document.getElementById('regStatus');
+    show(st, 'Patching openclaw.json and restarting gateway…', 's-warn');
+    try {
+        const res = await fetch(`/api/agents/${encodeURIComponent(activeRegAgent)}/register`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({model})
+        });
+        const d = await res.json();
+        show(st, res.ok
+            ? `✅ ${d.message}\n\nRefresh OpenClaw dashboard in ~5 seconds → go to Chat → check dropdown.`
+            : `❌ ${d.error}`, res.ok ? 's-ok' : 's-err');
+        if (res.ok) { loadAgents(); setTimeout(closeAll, 3000); }
+    } catch { show(st,'❌ Network error','s-err'); }
+}
+
+async function createAgent() {
+    const name  = document.getElementById('cName').value.trim();
+    const model = document.getElementById('cModel').value;
+    const soul  = document.getElementById('cSoul').value.trim();
+    const btn   = document.getElementById('cBtn');
+    const st    = document.getElementById('cStatus');
+    if (!name||!soul) return show(st,'Name and SOUL are required.','s-err');
+    btn.disabled=true; btn.textContent='Creating…'; st.style.display='none';
+    try {
+        const res = await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model,soul})});
+        const d   = await res.json();
+        const type = res.status===207?'s-warn':res.ok?'s-ok':'s-err';
+        show(st,
+            `${res.ok?'✅':res.status===207?'⚠️':'❌'} ${d.message||d.warning||d.error}\n\n` +
+            `Config patched: ${JSON.stringify(d.configPatch)}\n` +
+            `SOUL correct: ${d.soulWrittenCorrectly}\n\n` +
+            (d.nextStep||''),
+            type);
+        if (res.ok||res.status===207){ document.getElementById('cName').value=''; document.getElementById('cSoul').value=''; loadAgents(); }
+    } catch { show(st,'❌ Network error','s-err'); }
+    finally { btn.disabled=false; btn.textContent='Create & Register Agent'; }
+}
+
+function show(el,msg,cls){el.textContent=msg;el.className='status '+cls;el.style.display='block';}
+loadAgents();
+</script>
+</body>
+</html>
