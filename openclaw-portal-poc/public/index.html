@@ -3,410 +3,1193 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>OpenClaw Command Center</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>nexus.ai // openclaw terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* ══════════════════════════════════════════════
+   TERMINAL THEME — PROGRAMMER AESTHETIC
+══════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#080a0d;--s1:#0d1117;--s2:#161b22;--s3:#21262d;
-  --border:#30363d;--border2:#484f58;
-  --accent:#f78166;--accent2:#79c0ff;
-  --green:#56d364;--yellow:#e3b341;--purple:#bc8cff;--red:#f85149;
-  --text:#e6edf3;--muted:#8b949e;--r:6px;
-  --font-d:'Syne',sans-serif;--font-m:'JetBrains Mono',monospace;
+  /* Dracula-inspired terminal palette */
+  --bg:       #0d0f12;
+  --bg1:      #12151a;
+  --bg2:      #161b22;
+  --bg3:      #1c2128;
+  --bg4:      #21262d;
+  --line:     rgba(48,54,61,.8);
+  --line2:    rgba(48,54,61,1);
+
+  --green:    #50fa7b;
+  --cyan:     #8be9fd;
+  --purple:   #bd93f9;
+  --pink:     #ff79c6;
+  --yellow:   #f1fa8c;
+  --orange:   #ffb86c;
+  --red:      #ff5555;
+  --comment:  #6272a4;
+
+  --text:     #f8f8f2;
+  --text2:    #a8b3c4;
+  --text3:    #6272a4;
+
+  --cursor:   #50fa7b;
+  --selection:#44475a;
+
+  --r: 4px;
+  --r2: 6px;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --sidebar: 240px;
 }
-body{font-family:var(--font-m);background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
-.shell{display:grid;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;height:100vh}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:var(--mono);color:var(--text);font-size:13px;line-height:1.6}
 
-/* TOPBAR */
-.topbar{grid-column:1/-1;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:.6rem}
-.brand{font-family:var(--font-d);font-weight:800;font-size:.95rem;color:var(--accent)}
-.tabs{flex:1;display:flex;justify-content:center;gap:.2rem}
-.tab{font-family:var(--font-d);font-size:.72rem;font-weight:600;padding:.28rem .75rem;border-radius:var(--r);border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .12s}
-.tab.active{background:var(--s3);color:var(--text)}
-.tab:hover:not(.active){background:var(--s2);color:var(--text)}
-.gws{display:flex;align-items:center;gap:.4rem;font-size:.68rem;color:var(--muted)}
-.dot{width:6px;height:6px;border-radius:50%}
-.dot-on{background:var(--green);box-shadow:0 0 4px var(--green)}
-.dot-off{background:var(--red)}
-.dot-chk{background:var(--yellow)}
-.net-btn{font-size:.65rem;color:var(--accent2);border:1px solid rgba(121,192,255,.3);padding:2px 7px;border-radius:4px;cursor:pointer;background:transparent}
-.net-btn:hover{background:rgba(121,192,255,.08)}
+/* Scanline overlay */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:9999}
 
-/* SIDEBAR */
-.sidebar{background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.sb-sec{font-size:.6rem;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:.5rem .55rem .2rem}
-.sb-list{flex:1;overflow-y:auto;padding:0 .35rem}
-.ab{display:flex;align-items:center;gap:.45rem;padding:.42rem .5rem;border-radius:var(--r);cursor:pointer;border:none;background:transparent;width:100%;color:var(--text);margin-bottom:1px}
-.ab:hover{background:var(--s2)}
-.ab.sel{background:var(--s3)}
-.ab.sel .abn{color:var(--accent2)}
-.av{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.65rem;flex-shrink:0;font-family:var(--font-d);font-weight:700}
-.abn{font-size:.76rem;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.abg{font-size:.5rem;padding:1px 4px;border-radius:3px;flex-shrink:0;border:1px solid}
-.bok{background:rgba(86,211,100,.1);color:var(--green);border-color:rgba(86,211,100,.3)}
-.berr{background:rgba(248,81,73,.1);color:var(--red);border-color:rgba(248,81,73,.3)}
-.sb-add{display:flex;align-items:center;gap:.4rem;padding:.4rem .5rem;border-radius:var(--r);cursor:pointer;color:var(--muted);font-size:.72rem;border:1px dashed var(--border);background:transparent;width:calc(100% - .7rem);margin:.4rem .35rem;transition:all .12s}
-.sb-add:hover{background:var(--s2);color:var(--text)}
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--comment);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
 
-/* MAIN */
-.main{overflow:hidden;display:flex;flex-direction:column}
-.panel{display:none;flex-direction:column;height:100%}
+/* ── LAYOUT ── */
+.shell{display:grid;grid-template-columns:var(--sidebar) 1fr;height:100vh;overflow:hidden}
+
+/* ══ SIDEBAR ══ */
+.sidebar{
+  background:var(--bg1);
+  border-right:1px solid var(--line);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  transition:transform .25s ease;
+}
+
+/* Logo / title bar */
+.sb-titlebar{
+  background:var(--bg2);
+  border-bottom:1px solid var(--line);
+  padding:.6rem .75rem;
+  display:flex;align-items:center;gap:.5rem;
+  flex-shrink:0;
+}
+.sb-title-dots{display:flex;gap:.35rem}
+.sb-dot{width:10px;height:10px;border-radius:50%}
+.sb-dot.r{background:#ff5f57}.sb-dot.y{background:#febc2e}.sb-dot.g{background:#28c840}
+.sb-title-text{font-size:.7rem;color:var(--text3);flex:1;text-align:center;letter-spacing:.05em}
+
+/* Gateway status */
+.gw-bar{
+  padding:.5rem .75rem;
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:.5rem;
+  font-size:.68rem;color:var(--text3);
+  flex-shrink:0;
+  background:var(--bg1);
+}
+.gw-bar::before{content:'$ ';color:var(--comment)}
+.gw-prompt{flex:1;font-size:.68rem}
+.gw-led{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-left:auto}
+.gw-led.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.gw-led.off{background:var(--red);box-shadow:0 0 4px var(--red)}
+.gw-led.chk{background:var(--yellow);animation:blink-led 1s steps(1) infinite}
+@keyframes blink-led{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* Nav */
+.sb-nav{padding:.4rem .4rem 0;flex-shrink:0}
+.nav-label{font-size:.6rem;color:var(--comment);padding:.5rem .35rem .2rem;letter-spacing:.08em}
+.nav-item{
+  display:flex;align-items:center;gap:.55rem;
+  padding:.4rem .5rem;border-radius:var(--r);
+  cursor:pointer;transition:all .15s;
+  font-size:.72rem;color:var(--text3);
+  border:none;background:transparent;width:100%;text-align:left;
+  font-family:var(--mono);
+  margin-bottom:1px;
+  position:relative;
+}
+.nav-item::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:2px;border-radius:1px;background:var(--purple);opacity:0;transition:opacity .15s}
+.nav-item:hover{background:rgba(255,255,255,.04);color:var(--text2)}
+.nav-item.active{background:rgba(189,147,249,.08);color:var(--purple)}
+.nav-item.active::before{opacity:1}
+.nav-item .ni-prefix{color:var(--comment);font-size:.7rem;flex-shrink:0}
+.nav-item .ni-text{flex:1}
+.nav-item .ni-badge{
+  font-size:.58rem;background:rgba(189,147,249,.15);
+  color:var(--purple);border-radius:3px;
+  padding:1px 5px;font-weight:500;
+}
+
+/* Agent list */
+.sb-section-hdr{
+  font-size:.6rem;color:var(--comment);
+  padding:.6rem .75rem .2rem;
+  letter-spacing:.06em;display:flex;align-items:center;gap:.4rem;
+}
+.sb-section-hdr::after{content:'';flex:1;height:1px;background:var(--line)}
+.sb-agents{flex:1;overflow-y:auto;padding:.25rem .4rem}
+.agent-row{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.38rem .5rem;border-radius:var(--r);
+  cursor:pointer;transition:all .15s;
+  font-size:.72rem;color:var(--text3);
+  border:none;background:transparent;width:100%;text-align:left;
+  font-family:var(--mono);margin-bottom:1px;
+}
+.agent-row:hover{background:rgba(255,255,255,.04);color:var(--text2)}
+.agent-row.selected{background:rgba(80,250,123,.06);color:var(--green)}
+.agent-row.selected .ar-sigil{color:var(--green)}
+.ar-sigil{color:var(--comment);font-size:.7rem;flex-shrink:0;width:14px}
+.ar-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ar-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.ar-ok{background:var(--green)}.ar-err{background:var(--red)}
+
+/* Add agent button */
+.sb-add{
+  margin:.4rem .4rem .5rem;
+  padding:.38rem .5rem;border-radius:var(--r);
+  border:1px dashed rgba(98,114,164,.4);
+  background:transparent;cursor:pointer;
+  display:flex;align-items:center;gap:.4rem;
+  font-size:.68rem;color:var(--comment);
+  font-family:var(--mono);width:calc(100% - .8rem);
+  transition:all .15s;
+}
+.sb-add:hover{border-color:var(--purple);color:var(--purple);background:rgba(189,147,249,.05)}
+
+/* ══ TOPBAR (mobile) ══ */
+.topbar{
+  display:none;background:var(--bg2);
+  border-bottom:1px solid var(--line);
+  padding:.5rem .75rem;
+  align-items:center;gap:.65rem;
+  flex-shrink:0;
+}
+.top-logo{font-size:.78rem;font-weight:600;color:var(--green)}
+.top-logo span{color:var(--comment)}
+.menu-btn{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:1rem;font-family:var(--mono)}
+.top-gw{display:flex;align-items:center;gap:.35rem;margin-left:auto;font-size:.65rem;color:var(--text3)}
+
+/* ══ MAIN ══ */
+.main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+
+/* Desktop tab bar */
+.tab-bar{
+  background:var(--bg2);border-bottom:1px solid var(--line);
+  padding:.4rem .75rem;display:flex;align-items:center;gap:.2rem;
+  flex-shrink:0;
+}
+.tab{
+  padding:.35rem .75rem;border-radius:var(--r);
+  border:none;background:transparent;
+  color:var(--text3);cursor:pointer;
+  font-size:.7rem;font-family:var(--mono);
+  transition:all .15s;display:flex;align-items:center;gap:.35rem;
+}
+.tab:hover{background:rgba(255,255,255,.04);color:var(--text2)}
+.tab.active{background:rgba(189,147,249,.1);color:var(--purple);border-bottom:1px solid var(--purple)}
+.tab .tab-prefix{color:var(--comment);font-size:.68rem}
+.tab-spacer{flex:1}
+.btn-net{
+  background:rgba(139,233,253,.08);border:1px solid rgba(139,233,253,.2);
+  color:var(--cyan);border-radius:var(--r);padding:.3rem .7rem;
+  font-size:.68rem;font-family:var(--mono);cursor:pointer;
+  display:flex;align-items:center;gap:.35rem;transition:all .15s;
+}
+.btn-net:hover{background:rgba(139,233,253,.15)}
+
+/* ══ CONTENT ══ */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.panel{display:none;flex-direction:column;height:100%;overflow:hidden}
 .panel.active{display:flex}
-.pscroll{flex:1;overflow-y:auto;padding:1rem}
+.pscroll{flex:1;overflow-y:auto;padding:1rem 1.25rem}
 
-/* TASK UI */
-.task-hdr{display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
-.t-av{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;font-family:var(--font-d);font-weight:700}
-.t-name{font-family:var(--font-d);font-weight:700;font-size:.9rem}
-.t-model{font-size:.65rem;color:var(--muted);margin-top:1px}
-.oc-link{margin-left:auto;font-size:.65rem;color:var(--accent2);border:1px solid rgba(121,192,255,.25);padding:2px 7px;border-radius:4px;text-decoration:none}
+/* ══ DASHBOARD ══ */
+.dash-header{
+  font-size:.65rem;color:var(--comment);
+  padding:.75rem 1.25rem .25rem;
+  border-bottom:1px solid var(--line);
+  font-style:italic;flex-shrink:0;
+}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.6rem;margin-bottom:1rem}
+.stat-box{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r);padding:.75rem .9rem;
+  position:relative;overflow:hidden;
+  transition:border-color .2s;cursor:default;
+}
+.stat-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat-box.s-green::before{background:var(--green)}
+.stat-box.s-purple::before{background:var(--purple)}
+.stat-box.s-cyan::before{background:var(--cyan)}
+.stat-box.s-orange::before{background:var(--orange)}
+.stat-box:hover{border-color:var(--line2)}
+.sb-key{font-size:.62rem;color:var(--comment);margin-bottom:.3rem}
+.sb-val{font-size:1.5rem;font-weight:700;line-height:1;margin-bottom:.25rem}
+.sb-val.s-green{color:var(--green)}.sb-val.s-purple{color:var(--purple)}
+.sb-val.s-cyan{color:var(--cyan)}.sb-val.s-orange{color:var(--orange)}
+.sb-desc{font-size:.62rem;color:var(--text3)}
+.sb-bar{height:2px;background:rgba(255,255,255,.06);border-radius:1px;margin-top:.6rem}
+.sb-bar-fill{height:100%;border-radius:1px;transition:width 1s ease}
 
-.task-body{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:.65rem}
-.resp-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:.4rem}
+/* Quick actions row */
+.qa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem;margin-bottom:1rem}
+.qa-item{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r);padding:.65rem .75rem;
+  cursor:pointer;transition:all .15s;text-align:left;
+  font-family:var(--mono);
+}
+.qa-item:hover{border-color:var(--purple);background:rgba(189,147,249,.05)}
+.qa-item:hover .qa-cmd{color:var(--purple)}
+.qa-cmd{font-size:.72rem;color:var(--green);margin-bottom:.25rem;display:flex;align-items:center;gap:.3rem}
+.qa-cmd::before{content:'>';color:var(--comment)}
+.qa-desc{font-size:.65rem;color:var(--text3)}
 
-.resp-box{flex:1;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.75rem;overflow-y:auto;font-size:.78rem;line-height:1.7;transition:border-color .2s}
-.resp-box.streaming{border-color:var(--accent2)}
-.placeholder{color:var(--muted);font-style:italic;font-size:.78rem}
-.resp-text{white-space:pre-wrap;word-break:break-word}
-.cursor{display:inline-block;width:2px;height:.9em;background:var(--accent2);margin-left:1px;animation:blink .65s steps(1) infinite;vertical-align:text-bottom}
+/* Section header */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem}
+.sec-title{
+  font-size:.68rem;color:var(--comment);
+  display:flex;align-items:center;gap:.4rem;
+}
+.sec-title::before{content:'//';color:var(--comment);opacity:.6}
+.sec-link{font-size:.65rem;color:var(--purple);cursor:pointer;background:transparent;border:none;font-family:var(--mono);transition:color .15s}
+.sec-link:hover{color:var(--pink)}
+
+/* Recent tasks */
+.recent-list{display:flex;flex-direction:column;gap:.4rem}
+.recent-item{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r);padding:.6rem .8rem;
+  cursor:pointer;transition:all .15s;
+  display:flex;gap:.75rem;align-items:flex-start;
+}
+.recent-item:hover{border-color:var(--line2);background:var(--bg3)}
+.ri-left{display:flex;flex-direction:column;gap:.25rem;min-width:0;flex:1}
+.ri-header{display:flex;align-items:center;gap:.5rem;font-size:.68rem}
+.ri-agent{color:var(--cyan);font-size:.65rem}
+.ri-time{color:var(--text3);font-size:.62rem;margin-left:auto}
+.ri-task{font-size:.72rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ri-resp{font-size:.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Agent chips in dashboard */
+.agent-chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.agent-chip-dash{
+  background:var(--bg3);border:1px solid var(--line);
+  border-radius:var(--r);padding:.45rem .7rem;
+  cursor:pointer;transition:all .15s;
+  font-size:.7rem;color:var(--text2);
+  display:flex;align-items:center;gap:.4rem;
+  font-family:var(--mono);
+}
+.agent-chip-dash:hover{border-color:var(--green);color:var(--green);background:rgba(80,250,123,.05)}
+.acd-dot{width:6px;height:6px;border-radius:50%}
+
+/* ══ TASK PANEL ══ */
+.task-layout{display:grid;grid-template-columns:1fr 260px;height:100%;overflow:hidden}
+.task-main{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--line)}
+.task-right{background:var(--bg1);display:flex;flex-direction:column;overflow:hidden}
+
+/* Agent header */
+.agent-hdr{
+  background:var(--bg2);border-bottom:1px solid var(--line);
+  padding:.55rem .9rem;display:flex;align-items:center;gap:.65rem;
+  flex-shrink:0;
+}
+.ah-indicator{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 6px var(--green);
+  flex-shrink:0;
+}
+.ah-name{
+  font-size:.75rem;font-weight:600;color:var(--text);
+}
+.ah-model{font-size:.62rem;color:var(--comment);margin-top:1px}
+.ah-sep{color:var(--comment);font-size:.8rem}
+.ah-session{font-size:.62rem;color:var(--text3);font-style:italic}
+.ah-btns{margin-left:auto;display:flex;gap:.35rem}
+.ah-btn{
+  background:transparent;border:1px solid var(--line);
+  color:var(--text3);border-radius:var(--r);
+  padding:.28rem .6rem;font-size:.65rem;
+  cursor:pointer;font-family:var(--mono);
+  transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:.25rem;
+}
+.ah-btn:hover{border-color:var(--comment);color:var(--text2)}
+
+/* Chat area */
+.chat-area{flex:1;overflow-y:auto;padding:.75rem 1rem;display:flex;flex-direction:column;gap:.6rem}
+.chat-empty{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;height:100%;gap:.5rem;
+  color:var(--comment);text-align:center;
+}
+.chat-empty .ce-ascii{font-size:.7rem;line-height:1.4;color:var(--comment);opacity:.5;margin-bottom:.5rem;white-space:pre}
+.chat-empty h3{font-size:.78rem;color:var(--text3)}
+.chat-empty p{font-size:.68rem;color:var(--comment);max-width:260px;line-height:1.6}
+
+/* Messages */
+.msg-wrap{display:flex;flex-direction:column;gap:.2rem}
+.msg-meta{font-size:.62rem;color:var(--comment);display:flex;align-items:center;gap:.4rem;padding:0 .1rem}
+.msg-tag-user{color:var(--orange)}
+.msg-tag-agent{color:var(--purple)}
+.msg-time{color:var(--text3)}
+.msg-body-user{
+  background:rgba(255,184,108,.07);border:1px solid rgba(255,184,108,.15);
+  border-radius:var(--r);padding:.55rem .75rem;
+  font-size:.75rem;line-height:1.6;color:var(--text);
+  border-left:2px solid var(--orange);
+  white-space:pre-wrap;word-break:break-word;
+}
+.msg-body-agent{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r);padding:.55rem .75rem;
+  font-size:.75rem;line-height:1.6;color:var(--text);
+  border-left:2px solid var(--purple);
+  white-space:pre-wrap;word-break:break-word;
+  transition:border-color .3s;
+}
+.msg-body-agent.streaming{border-left-color:var(--cyan);border-color:rgba(139,233,253,.2)}
+.cursor-blink{display:inline-block;width:8px;height:14px;background:var(--cursor);margin-left:1px;animation:blink .7s steps(1) infinite;vertical-align:text-bottom}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 
-/* Delegation panel */
-.deleg-box{background:var(--s2);border:1px solid rgba(188,140,255,.3);border-radius:var(--r);padding:.6rem .75rem;display:none;flex-direction:column;gap:.4rem;max-height:180px;overflow-y:auto}
-.deleg-box.show{display:flex}
-.deleg-hdr{font-size:.65rem;color:var(--purple);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
-.deleg-item{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.45rem .6rem}
-.deleg-item-hdr{display:flex;align-items:center;gap:.4rem;margin-bottom:.25rem}
-.d-av{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:var(--font-d);font-weight:700;flex-shrink:0}
-.d-name{font-size:.72rem;font-weight:600}
-.d-status{margin-left:auto;font-size:.6rem;padding:1px 5px;border-radius:3px}
-.ds-pending{background:rgba(227,179,65,.1);color:var(--yellow);border:1px solid rgba(227,179,65,.25)}
-.ds-running{background:rgba(121,192,255,.1);color:var(--accent2);border:1px solid rgba(121,192,255,.25);animation:pulse 1s ease-in-out infinite}
-.ds-done{background:rgba(86,211,100,.1);color:var(--green);border:1px solid rgba(86,211,100,.25)}
-.ds-err{background:rgba(248,81,73,.1);color:var(--red);border:1px solid rgba(248,81,73,.25)}
-.d-resp{font-size:.7rem;color:var(--muted);white-space:pre-wrap;max-height:60px;overflow:hidden}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* Delegation block */
+.deleg-block{
+  background:var(--bg1);
+  border:1px solid rgba(189,147,249,.2);
+  border-left:2px solid var(--purple);
+  border-radius:var(--r);padding:.6rem .75rem;
+  margin-top:.2rem;
+}
+.db-header{font-size:.65rem;color:var(--purple);margin-bottom:.5rem;display:flex;align-items:center;gap:.35rem}
+.db-header::before{content:'//';opacity:.6}
+.deleg-task{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r);padding:.45rem .6rem;
+  margin-bottom:.35rem;
+}
+.deleg-task:last-child{margin-bottom:0}
+.dt-hdr{display:flex;align-items:center;gap:.4rem;margin-bottom:.25rem}
+.dt-name{font-size:.7rem;color:var(--cyan);font-weight:600}
+.dt-status{font-size:.58rem;padding:1px 6px;border-radius:2px;font-weight:600;margin-left:auto}
+.dts-pending{background:rgba(241,250,140,.1);color:var(--yellow)}
+.dts-running{background:rgba(139,233,253,.1);color:var(--cyan);animation:pulse-s .9s infinite}
+.dts-done{background:rgba(80,250,123,.1);color:var(--green)}
+.dts-err{background:rgba(255,85,85,.1);color:var(--red)}
+@keyframes pulse-s{0%,100%{opacity:1}50%{opacity:.5}}
+.dt-resp{font-size:.68rem;color:var(--text3);white-space:pre-wrap;max-height:60px;overflow:hidden}
 
-/* Debug log */
-.dbg-bar{display:flex;align-items:center;gap:.4rem;padding:.25rem .45rem;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;user-select:none;flex-shrink:0}
-.dbg-bar span{font-size:.65rem;color:var(--muted)}
-.dbg-log{background:var(--s1);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);padding:.4rem .6rem;overflow-y:auto;max-height:110px;display:none}
-.dbg-log.open{display:block}
-.ll{font-size:.64rem;color:var(--muted);line-height:1.5;white-space:pre-wrap}
-.ll.err{color:var(--red)}.ll.ok{color:var(--green)}
-
-/* Status */
-.sbar{display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.65rem;color:var(--muted);flex-shrink:0}
-.sd{width:6px;height:6px;border-radius:50%}
-.sd-idle{background:var(--border2)}.sd-work{background:var(--yellow);animation:pulse 1s infinite}
-.sd-done{background:var(--green)}.sd-err{background:var(--red)}
+/* Status bar */
+.status-bar{
+  padding:.4rem .9rem;border-top:1px solid var(--line);
+  display:flex;align-items:center;gap:.6rem;
+  font-size:.65rem;color:var(--text3);
+  background:var(--bg2);flex-shrink:0;
+}
+.stb-prefix{color:var(--comment)}
+.stb-led{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.stb-led.idle{background:var(--text3)}
+.stb-led.work{background:var(--cyan);animation:blink-led .6s steps(1) infinite}
+.stb-led.done{background:var(--green);box-shadow:0 0 6px var(--green)}
+.stb-led.err{background:var(--red)}
+.stb-text{flex:1}
+.stb-chars{font-size:.62rem;color:var(--comment);margin-left:auto;font-style:italic}
 
 /* Input */
-.inp-row{display:flex;gap:.45rem;flex-shrink:0;margin-top:.4rem}
-.task-inp{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-m);font-size:.78rem;padding:.55rem .75rem;resize:none;min-height:68px;outline:none;transition:border-color .15s;line-height:1.5}
-.task-inp:focus{border-color:var(--accent2)}
-.task-inp::placeholder{color:var(--muted)}
-.inp-btns{display:flex;flex-direction:column;gap:.35rem;flex-shrink:0}
-.btn-send{background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:.55rem .9rem;font-family:var(--font-d);font-weight:700;font-size:.78rem;cursor:pointer;transition:all .15s;white-space:nowrap}
-.btn-send:hover{background:#e06a52}
-.btn-send:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
-.bsm{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--r);padding:.35rem .65rem;font-family:var(--font-m);font-size:.67rem;cursor:pointer;transition:all .12s}
-.bsm:hover{background:var(--s2);color:var(--text)}
-
-/* Hint */
-.hint{font-size:.65rem;color:var(--muted);margin-top:.3rem;padding:.3rem .5rem;background:rgba(188,140,255,.06);border:1px solid rgba(188,140,255,.15);border-radius:4px}
-
-/* Empty */
-.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:.45rem}
-.empty .big{font-size:2rem}
-.empty h3{font-family:var(--font-d);color:var(--text);font-size:.9rem}
-.empty p{font-size:.75rem;text-align:center;max-width:260px;line-height:1.5}
-
-/* HISTORY */
-.hcard{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.75rem;cursor:pointer;transition:border-color .15s;margin-bottom:.45rem}
-.hcard:hover{border-color:var(--border2)}
-.hcard.delegated{border-color:rgba(188,140,255,.3)}
-.hc-top{display:flex;align-items:center;gap:.45rem;margin-bottom:.3rem}
-.hc-av{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.58rem;font-family:var(--font-d);font-weight:700}
-.hc-name{font-size:.73rem;font-weight:600}
-.hc-from{font-size:.62rem;color:var(--purple);margin-left:auto}
-.hc-time{font-size:.62rem;color:var(--muted)}
-.hc-task{font-size:.73rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2rem}
-.hc-resp{font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* FORMS */
-.stitle{font-family:var(--font-d);font-weight:700;font-size:.9rem;margin-bottom:.8rem}
-.frow{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
-.fg{display:flex;flex-direction:column;gap:.2rem;margin-bottom:.65rem}
-.fl{font-size:.62rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
-.fi,.fs,.ft{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-m);font-size:.78rem;padding:.52rem .72rem;outline:none;transition:border-color .15s;width:100%}
-.fi:focus,.fs:focus,.ft:focus{border-color:var(--accent2)}
-.ft{resize:vertical;min-height:140px;line-height:1.5}
-.fs option{background:var(--s2)}
-.bpri{background:var(--accent2);color:var(--bg);border:none;border-radius:var(--r);padding:.55rem 1.1rem;font-family:var(--font-d);font-weight:700;font-size:.8rem;cursor:pointer;transition:all .15s;margin-top:.2rem}
-.bpri:hover{opacity:.85}
-.bpri:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
-.bgr{background:var(--green);color:var(--bg)}
-.fst{margin-top:.55rem;padding:.55rem .75rem;border-radius:var(--r);font-size:.7rem;white-space:pre-wrap;display:none;line-height:1.5;border:1px solid}
-.fok{background:rgba(86,211,100,.08);border-color:rgba(86,211,100,.25);color:var(--green)}
-.ferr{background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.25);color:var(--red)}
-.fwarn{background:rgba(227,179,65,.08);border-color:rgba(227,179,65,.25);color:var(--yellow)}
-
-/* MANAGE */
-.amc{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.65rem .8rem;display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
-.amc-info{flex:1;min-width:0}
-.amc-name{font-size:.8rem;font-weight:600}
-.amc-sub{font-size:.65rem;color:var(--muted)}
-.amca{display:flex;gap:.3rem;flex-shrink:0}
-.abtn{font-size:.62rem;padding:2px 7px;background:transparent;border:1px solid;border-radius:3px;cursor:pointer;font-family:var(--font-m);text-decoration:none;display:inline-block}
-.abtn-y{border-color:var(--yellow);color:var(--yellow)}.abtn-y:hover{background:rgba(227,179,65,.1)}
-.abtn-b{border-color:var(--accent2);color:var(--accent2)}.abtn-b:hover{background:rgba(121,192,255,.08)}
-.soul-box{background:var(--s2);border:1px solid rgba(227,179,65,.4);border-radius:var(--r);padding:.8rem;margin-top:.7rem;display:none}
-
-/* NETWORK PANEL */
-.net-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:1rem;margin-bottom:.7rem}
-.net-card h3{font-size:.72rem;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.7rem}
-.url-row{display:flex;align-items:center;gap:.6rem;padding:.5rem .65rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;margin-bottom:.4rem}
-.url-text{font-size:.75rem;color:var(--green);flex:1;font-family:var(--font-m)}
-.copy-btn{font-size:.62rem;padding:2px 7px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer;font-family:var(--font-m)}
-.copy-btn:hover{background:var(--s2);color:var(--text)}
-.qr-placeholder{width:120px;height:120px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--muted);text-align:center;padding:.5rem;line-height:1.4}
-.net-tip{font-size:.72rem;color:var(--muted);line-height:1.6;padding:.6rem .75rem;background:rgba(86,211,100,.05);border:1px solid rgba(86,211,100,.15);border-radius:var(--r);margin-top:.5rem}
-.net-tip strong{color:var(--text)}
-
-/* Network modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:center;justify-content:center}
-.modal-overlay.open{display:flex}
-.modal{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:1.25rem;width:90%;max-width:420px;max-height:80vh;overflow-y:auto}
-.modal h2{font-family:var(--font-d);font-size:.95rem;margin-bottom:1rem;color:var(--accent2)}
-.modal-close{float:right;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;margin-top:-.2rem}
-
-::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-
-/* Mobile responsive */
-@media(max-width:600px){
-  .shell{grid-template-columns:1fr;grid-template-rows:52px auto 1fr}
-  .sidebar{display:none}
-  .sidebar.mob-open{display:flex;position:fixed;left:0;top:52px;bottom:0;width:200px;z-index:50}
-  .mob-menu{display:flex!important}
+.input-section{
+  padding:.65rem .9rem .75rem;
+  border-top:1px solid var(--line);
+  background:var(--bg1);flex-shrink:0;
 }
-.mob-menu{display:none;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:.2rem}
+.input-prompt{
+  font-size:.65rem;color:var(--comment);
+  margin-bottom:.3rem;display:flex;align-items:center;gap:.35rem;
+}
+.input-prompt-agent{color:var(--green)}
+.input-prompt-symbol{color:var(--comment)}
+.textarea-wrap{
+  background:var(--bg2);border:1px solid var(--line2);
+  border-radius:var(--r);overflow:hidden;
+  transition:border-color .2s;
+}
+.textarea-wrap:focus-within{border-color:rgba(80,250,123,.4)}
+.task-inp{
+  width:100%;background:transparent;border:none;
+  color:var(--text);font-family:var(--mono);font-size:.75rem;
+  padding:.6rem .75rem .3rem;resize:none;
+  min-height:52px;max-height:120px;
+  outline:none;line-height:1.55;
+  caret-color:var(--cursor);
+}
+.task-inp::placeholder{color:var(--comment);font-style:italic}
+.inp-toolbar{
+  display:flex;align-items:center;padding:.25rem .5rem .45rem;
+  gap:.4rem;
+}
+.inp-hint{font-size:.62rem;color:var(--comment);flex:1;font-style:italic}
+.inp-hint kbd{
+  background:var(--bg3);border:1px solid var(--line2);
+  border-radius:2px;padding:0 4px;font-size:.6rem;
+  color:var(--text3);font-family:var(--mono);font-style:normal;
+}
+.inp-hint code{color:var(--pink);font-style:normal}
+.btn-clear{
+  background:transparent;border:none;
+  color:var(--comment);cursor:pointer;
+  font-size:.65rem;font-family:var(--mono);
+  padding:.2rem .4rem;border-radius:2px;
+  transition:all .15s;
+}
+.btn-clear:hover{color:var(--text3)}
+.btn-send{
+  background:var(--green);color:var(--bg);
+  border:none;border-radius:var(--r);
+  padding:.35rem .8rem;font-size:.72rem;
+  font-weight:700;font-family:var(--mono);
+  cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:.3rem;
+}
+.btn-send:hover{background:#3de86a;box-shadow:0 0 12px rgba(80,250,123,.3)}
+.btn-send:disabled{background:var(--bg3);color:var(--text3);cursor:not-allowed;box-shadow:none}
+
+/* Right sidebar */
+.tr-section{padding:.6rem .7rem;border-bottom:1px solid var(--line)}
+.tr-title{font-size:.62rem;color:var(--comment);letter-spacing:.06em;margin-bottom:.45rem}
+.tr-stat{display:flex;justify-content:space-between;padding:.18rem 0;font-size:.68rem}
+.tr-stat-k{color:var(--text3)}
+.tr-stat-v{color:var(--text);font-weight:600}
+.tr-stat-v.g{color:var(--green)}.tr-stat-v.p{color:var(--purple)}.tr-stat-v.c{color:var(--cyan)}
+.quick-del-list{display:flex;flex-direction:column;gap:.2rem}
+.qd-item{
+  display:flex;align-items:center;gap:.4rem;
+  padding:.32rem .45rem;border-radius:var(--r);
+  cursor:pointer;transition:all .15s;
+  font-size:.68rem;color:var(--text3);
+  border:none;background:transparent;
+  font-family:var(--mono);width:100%;text-align:left;
+}
+.qd-item:hover{background:rgba(255,255,255,.03);color:var(--cyan)}
+.qd-item:hover .qd-at{color:var(--cyan)}
+.qd-at{color:var(--comment);font-size:.65rem;flex-shrink:0}
+.qd-name{flex:1}
+.qd-badge{font-size:.55rem;color:var(--text3);font-style:italic}
+
+/* Debug */
+.dbg-toggle{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.35rem .7rem;font-size:.65rem;
+  color:var(--text3);cursor:pointer;
+  border-top:1px solid var(--line);
+  transition:color .15s;
+}
+.dbg-toggle:hover{color:var(--text2)}
+.dbg-body{
+  overflow-y:auto;max-height:130px;
+  font-family:var(--mono);font-size:.62rem;
+  color:var(--text3);line-height:1.5;
+  padding:.4rem .7rem;display:none;
+  background:var(--bg);
+}
+.dbg-body.open{display:block}
+.dl{padding:1px 0;border-bottom:1px solid rgba(255,255,255,.02)}
+.dl.ok{color:var(--green)}.dl.err{color:var(--red)}.dl.info{color:var(--cyan)}
+
+/* ══ HISTORY ══ */
+.hist-toolbar{
+  padding:.6rem .9rem;border-bottom:1px solid var(--line);
+  display:flex;gap:.5rem;flex-shrink:0;align-items:center;
+  background:var(--bg2);
+}
+.hist-search{
+  flex:1;background:var(--bg3);border:1px solid var(--line2);
+  border-radius:var(--r);padding:.32rem .65rem;
+  font-size:.7rem;color:var(--text);font-family:var(--mono);
+  outline:none;transition:border-color .2s;
+}
+.hist-search:focus{border-color:rgba(189,147,249,.4)}
+.hist-search::placeholder{color:var(--comment);font-style:italic}
+.hf-btn{
+  background:var(--bg3);border:1px solid var(--line2);
+  color:var(--text3);border-radius:var(--r);
+  padding:.3rem .6rem;font-size:.65rem;
+  cursor:pointer;font-family:var(--mono);transition:all .15s;
+}
+.hf-btn:hover,.hf-btn.active{background:rgba(189,147,249,.1);border-color:rgba(189,147,249,.3);color:var(--purple)}
+.hist-list{display:flex;flex-direction:column;gap:.4rem}
+.hist-card{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r);padding:.65rem .8rem;
+  cursor:pointer;transition:all .15s;
+  border-left:2px solid transparent;
+}
+.hist-card:hover{border-color:var(--line2);border-left-color:var(--purple);background:var(--bg3)}
+.hist-card.delegated{border-left-color:var(--pink)}
+.hc-top{display:flex;align-items:center;gap:.45rem;margin-bottom:.3rem;font-size:.65rem}
+.hc-agent{color:var(--cyan)}.hc-from{color:var(--pink);font-size:.6rem}
+.hc-time{margin-left:auto;color:var(--text3);font-size:.6rem}
+.hc-task{font-size:.7rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2rem}
+.hc-resp{font-size:.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-empty{text-align:center;padding:2.5rem;color:var(--comment);font-size:.72rem}
+.hist-export-bar{display:flex;gap:.4rem;padding:.5rem .9rem;border-bottom:1px solid var(--line);flex-shrink:0}
+.heb-btn{background:transparent;border:1px solid var(--line2);color:var(--text3);border-radius:var(--r);padding:.3rem .6rem;font-size:.65rem;cursor:pointer;font-family:var(--mono);transition:all .15s}
+.heb-btn:hover{border-color:var(--comment);color:var(--text2)}
+.heb-btn.danger:hover{border-color:var(--red);color:var(--red)}
+
+/* ══ CREATE ══ */
+.create-layout{display:grid;grid-template-columns:1fr 260px;height:100%;overflow:hidden}
+.create-form{overflow-y:auto;padding:.85rem 1rem}
+.create-preview{background:var(--bg1);border-left:1px solid var(--line);padding:.85rem .9rem;overflow-y:auto}
+.form-group{margin-bottom:.85rem}
+.form-label{display:block;font-size:.65rem;color:var(--comment);margin-bottom:.35rem;letter-spacing:.04em}
+.form-input,.form-select,.form-textarea{
+  width:100%;background:var(--bg2);
+  border:1px solid var(--line2);border-radius:var(--r);
+  color:var(--text);font-family:var(--mono);font-size:.75rem;
+  padding:.5rem .7rem;outline:none;transition:border-color .2s;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:rgba(80,250,123,.4);box-shadow:0 0 0 2px rgba(80,250,123,.06)}
+.form-textarea{resize:vertical;min-height:140px;line-height:1.55}
+.form-select option{background:var(--bg2)}
+.form-input::placeholder,.form-textarea::placeholder{color:var(--comment);font-style:italic}
+
+/* Model selector */
+.model-select-grid{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
+.model-opt{
+  background:var(--bg2);border:1px solid var(--line2);
+  border-radius:var(--r);padding:.45rem .6rem;
+  cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:.4rem;
+}
+.model-opt:hover{border-color:var(--comment)}
+.model-opt.selected{border-color:rgba(80,250,123,.4);background:rgba(80,250,123,.04)}
+.model-opt input{display:none}
+.model-radio{width:8px;height:8px;border-radius:50%;border:1px solid var(--comment);flex-shrink:0;transition:all .15s}
+.model-opt.selected .model-radio{background:var(--green);border-color:var(--green);box-shadow:0 0 6px var(--green)}
+.model-nm{font-size:.7rem;font-weight:500;flex:1}
+.model-pv{font-size:.58rem;color:var(--text3)}
+
+/* Soul templates */
+.soul-tpls{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.5rem}
+.soul-tpl{
+  background:var(--bg3);border:1px solid var(--line2);
+  border-radius:var(--r);padding:.3rem .6rem;
+  cursor:pointer;font-size:.65rem;color:var(--text3);
+  font-family:var(--mono);transition:all .15s;
+}
+.soul-tpl:hover{border-color:var(--purple);color:var(--purple);background:rgba(189,147,249,.05)}
+
+/* Create button */
+.btn-create{
+  background:var(--green);color:var(--bg);
+  border:none;border-radius:var(--r);
+  padding:.55rem 1.1rem;font-size:.75rem;
+  font-weight:700;font-family:var(--mono);
+  cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:.4rem;
+  margin-top:.85rem;
+}
+.btn-create:hover{background:#3de86a;box-shadow:0 0 16px rgba(80,250,123,.3)}
+.btn-create:disabled{background:var(--bg3);color:var(--text3);cursor:not-allowed;box-shadow:none}
+
+/* Preview box */
+.preview-box{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r);padding:.65rem .75rem;
+  font-family:var(--mono);font-size:.7rem;
+}
+.pv-comment{color:var(--comment);font-size:.65rem;margin-bottom:.55rem;font-style:italic}
+.pv-line{display:flex;gap:.4rem;margin-bottom:.2rem}
+.pv-key{color:var(--purple)}.pv-eq{color:var(--comment)}.pv-val{color:var(--green)}
+.pv-val.str{color:var(--yellow)}.pv-val.model{color:var(--cyan)}.pv-val.func{color:var(--orange)}
+.pv-soul-box{
+  background:var(--bg);border:1px solid var(--line);
+  border-radius:var(--r);padding:.5rem .65rem;
+  margin-top:.6rem;font-size:.65rem;color:var(--text2);
+  white-space:pre-wrap;max-height:180px;overflow-y:auto;
+  line-height:1.55;
+}
+.pv-soul-label{font-size:.6rem;color:var(--comment);margin-bottom:.3rem;font-style:italic}
+
+/* Feedback */
+.feedback{padding:.5rem .7rem;border-radius:var(--r);font-size:.7rem;display:none;white-space:pre-wrap;margin-top:.55rem;border-left:2px solid}
+.fb-ok{background:rgba(80,250,123,.06);border-left-color:var(--green);color:var(--green)}
+.fb-err{background:rgba(255,85,85,.06);border-left-color:var(--red);color:var(--red)}
+.fb-warn{background:rgba(241,250,140,.06);border-left-color:var(--yellow);color:var(--yellow)}
+
+/* ══ MANAGE ══ */
+.manage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.6rem}
+.manage-card{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r);padding:.8rem .9rem;
+  transition:all .15s;border-top:2px solid transparent;
+}
+.manage-card:hover{border-color:var(--line2);border-top-color:var(--purple)}
+.mc-header{display:flex;align-items:center;gap:.55rem;margin-bottom:.6rem}
+.mc-sigil{font-size:1.1rem;flex-shrink:0}
+.mc-nm{font-size:.8rem;font-weight:600}
+.mc-id{font-size:.62rem;color:var(--comment);font-style:italic;margin-top:1px}
+.mc-badges{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.65rem}
+.mc-bdg{font-size:.6rem;padding:2px 7px;border-radius:2px;font-weight:600;border:1px solid}
+.mb-ok{background:rgba(80,250,123,.08);color:var(--green);border-color:rgba(80,250,123,.2)}
+.mb-err{background:rgba(255,85,85,.08);color:var(--red);border-color:rgba(255,85,85,.2)}
+.mb-info{background:rgba(139,233,253,.08);color:var(--cyan);border-color:rgba(139,233,253,.2)}
+.mc-actions{display:flex;gap:.3rem;flex-wrap:wrap}
+.mc-btn{
+  font-size:.65rem;padding:.3rem .65rem;border-radius:var(--r);
+  cursor:pointer;font-family:var(--mono);transition:all .15s;
+  border:1px solid;text-decoration:none;display:inline-flex;align-items:center;gap:.25rem;
+}
+.mc-btn-primary{background:rgba(80,250,123,.08);border-color:rgba(80,250,123,.2);color:var(--green)}
+.mc-btn-primary:hover{background:rgba(80,250,123,.15)}
+.mc-btn-ghost{background:transparent;border-color:var(--line2);color:var(--text3)}
+.mc-btn-ghost:hover{border-color:var(--comment);color:var(--text2)}
+.manage-bar{display:flex;gap:.4rem;margin-bottom:.75rem;align-items:center;flex-wrap:wrap}
+.mbar-btn{
+  background:var(--bg2);border:1px solid var(--line2);color:var(--text3);
+  border-radius:var(--r);padding:.35rem .7rem;font-size:.68rem;
+  cursor:pointer;font-family:var(--mono);transition:all .15s;
+  display:flex;align-items:center;gap:.3rem;
+}
+.mbar-btn:hover{border-color:var(--comment);color:var(--text2)}
+.mbar-btn.go{background:rgba(80,250,123,.07);border-color:rgba(80,250,123,.2);color:var(--green)}
+.mbar-btn.go:hover{background:rgba(80,250,123,.15)}
+
+/* ══ MODALS ══ */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--bg2);border:1px solid var(--line2);
+  border-radius:var(--r2);padding:1.1rem 1.25rem;
+  width:100%;max-width:500px;max-height:85vh;overflow-y:auto;
+  box-shadow:0 20px 50px rgba(0,0,0,.6);
+}
+.modal h2{
+  font-size:.82rem;color:var(--text);
+  margin-bottom:.9rem;display:flex;align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid var(--line);padding-bottom:.6rem;
+}
+.modal-close{background:transparent;border:none;color:var(--text3);cursor:pointer;font-family:var(--mono);font-size:.9rem;transition:color .15s}
+.modal-close:hover{color:var(--red)}
+
+/* Net modal */
+.net-url-box{
+  background:var(--bg3);border:1px solid var(--line2);
+  border-radius:var(--r);padding:.5rem .7rem;
+  display:flex;align-items:center;gap:.6rem;
+  margin-bottom:.4rem;
+}
+.net-url{font-family:var(--mono);font-size:.72rem;color:var(--green);flex:1}
+.net-copy{
+  background:transparent;border:1px solid var(--line2);
+  color:var(--text3);border-radius:var(--r);padding:.25rem .55rem;
+  font-size:.62rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
+}
+.net-copy:hover{border-color:var(--green);color:var(--green)}
+.net-open{
+  font-size:.62rem;color:var(--cyan);text-decoration:none;
+  border:1px solid rgba(139,233,253,.2);border-radius:var(--r);
+  padding:.25rem .5rem;transition:all .15s;
+}
+.net-open:hover{background:rgba(139,233,253,.08)}
+.net-steps{font-size:.7rem;color:var(--text2);line-height:1.8;margin-top:.65rem}
+.net-steps li{padding:.15rem 0;color:var(--text3)}
+.net-steps li::marker{color:var(--purple)}
+.net-warning{font-size:.67rem;color:var(--yellow);background:rgba(241,250,140,.05);border:1px solid rgba(241,250,140,.15);border-left:2px solid var(--yellow);border-radius:var(--r);padding:.5rem .65rem;margin-top:.65rem}
+
+/* ══ MOBILE ══ */
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:98}
+.sb-overlay.show{display:block}
+
+@media(max-width:768px){
+  .shell{grid-template-columns:1fr;display:flex;flex-direction:column}
+  .sidebar{display:none;position:fixed;left:0;top:0;bottom:0;width:240px;z-index:99;transform:translateX(-100%)}
+  .sidebar.mob-open{display:flex;transform:translateX(0)}
+  .topbar{display:flex}
+  .tab-bar{display:none}
+  .task-layout{grid-template-columns:1fr}
+  .task-right{display:none}
+  .create-layout{grid-template-columns:1fr}
+  .create-preview{display:none}
+  .manage-grid{grid-template-columns:1fr}
+  .pscroll{padding:.65rem .85rem}
+  .stat-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:480px){
+  .stat-grid{grid-template-columns:1fr}
+  .model-select-grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
+<div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+
+<!-- MOBILE TOPBAR -->
+<div class="topbar" id="topbar">
+  <button class="menu-btn" onclick="toggleSidebar()">≡</button>
+  <span class="top-logo"><span>//</span> nexus.ai</span>
+  <div class="top-gw">
+    <div class="gw-led chk" id="topLed" style="width:6px;height:6px;border-radius:50%"></div>
+    <span id="topGwText">connecting</span>
+  </div>
+  <button class="net-btn" onclick="openNetModal()" style="margin-left:.5rem;padding:.25rem .6rem;font-size:.65rem">📡</button>
+</div>
+
 <div class="shell">
 
-  <!-- TOPBAR -->
-  <header class="topbar">
-    <button class="mob-menu" onclick="toggleSidebar()">☰</button>
-    <div class="brand">🦀 Nexus.AI</div>
-    <div class="tabs">
-      <button class="tab active" onclick="showPanel('task')">Tasks</button>
-      <button class="tab" onclick="showPanel('history')">History</button>
-      <button class="tab" onclick="showPanel('create')">New Agent</button>
-      <button class="tab" onclick="showPanel('manage')">Manage</button>
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-titlebar">
+    <div class="sb-title-dots">
+      <div class="sb-dot r"></div><div class="sb-dot y"></div><div class="sb-dot g"></div>
     </div>
-    <div class="gws">
-      <div class="dot dot-chk" id="gwDot"></div>
-      <span id="gwLabel">…</span>
-    </div>
-    <button class="net-btn" onclick="openNetModal()">📱 Network</button>
-  </header>
+    <span class="sb-title-text">nexus.ai // terminal</span>
+  </div>
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sb-sec">Agents</div>
-    <div class="sb-list" id="sbAgents"></div>
-    <button class="sb-add" onclick="showPanel('create')">＋ New agent</button>
-  </aside>
+  <div class="gw-bar">
+    <span class="gw-prompt" id="gwPrompt">status: checking...</span>
+    <div class="gw-led chk" id="gwLed"></div>
+  </div>
 
-  <!-- MAIN -->
-  <main class="main">
+  <div class="sb-nav">
+    <div class="nav-label">// navigation</div>
+    <button class="nav-item active" id="nav-dashboard" onclick="showPanel('dashboard')">
+      <span class="ni-prefix">01</span><span class="ni-text">dashboard.sh</span>
+    </button>
+    <button class="nav-item" id="nav-task" onclick="showPanel('task')">
+      <span class="ni-prefix">02</span><span class="ni-text">assign_task.sh</span>
+    </button>
+    <button class="nav-item" id="nav-history" onclick="showPanel('history')">
+      <span class="ni-prefix">03</span><span class="ni-text">history.log</span>
+      <span class="ni-badge" id="histBadge"></span>
+    </button>
+    <button class="nav-item" id="nav-create" onclick="showPanel('create')">
+      <span class="ni-prefix">04</span><span class="ni-text">new_agent.sh</span>
+    </button>
+    <button class="nav-item" id="nav-manage" onclick="showPanel('manage')">
+      <span class="ni-prefix">05</span><span class="ni-text">manage.sh</span>
+    </button>
+    <button class="nav-item" onclick="openNetModal()">
+      <span class="ni-prefix">06</span><span class="ni-text">network.sh</span>
+    </button>
+  </div>
 
-    <!-- TASK -->
-    <div class="panel active" id="panel-task">
-      <div class="empty" id="noAgent">
-        <div class="big">🤖</div>
-        <h3>Select an agent</h3>
-        <p>Pick an agent from the sidebar. Use <strong style="color:var(--purple)">@AgentName</strong> in your task to auto-delegate to other agents.</p>
-      </div>
-      <div id="taskPane" style="display:none;flex-direction:column;height:100%;overflow:hidden">
-        <div class="task-hdr">
-          <div class="t-av" id="tAv"></div>
-          <div><div class="t-name" id="tName"></div><div class="t-model" id="tModel"></div></div>
-          <a class="oc-link" id="tOC" href="#" target="_blank">OpenClaw ↗</a>
-          <button class="bsm" onclick="clearConv()" style="margin-left:.4rem">Clear</button>
+  <div class="sb-section-hdr">agents</div>
+  <div class="sb-agents" id="sbAgents">
+    <div style="font-size:.68rem;color:var(--comment);padding:.3rem">loading...</div>
+  </div>
+  <button class="sb-add" onclick="showPanel('create')">
+    <span style="color:var(--green)">+</span> init new_agent
+  </button>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- Desktop tab bar -->
+  <div class="tab-bar">
+    <button class="tab active" id="htab-dashboard" onclick="showPanel('dashboard')"><span class="tab-prefix">~/</span>dashboard</button>
+    <button class="tab" id="htab-task" onclick="showPanel('task')"><span class="tab-prefix">~/</span>task</button>
+    <button class="tab" id="htab-history" onclick="showPanel('history')"><span class="tab-prefix">~/</span>history.log</button>
+    <button class="tab" id="htab-create" onclick="showPanel('create')"><span class="tab-prefix">~/</span>new_agent</button>
+    <button class="tab" id="htab-manage" onclick="showPanel('manage')"><span class="tab-prefix">~/</span>manage</button>
+    <div class="tab-spacer"></div>
+    <button class="btn-net" onclick="openNetModal()">📡 network access</button>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="dash-header">// nexus.ai command center — openclaw gateway interface</div>
+      <div class="pscroll">
+        <div class="stat-grid">
+          <div class="stat-box s-green">
+            <div class="sb-key">// total_agents</div>
+            <div class="sb-val s-green" id="stat-agents">–</div>
+            <div class="sb-desc">registered &amp; configured</div>
+            <div class="sb-bar"><div class="sb-bar-fill" id="sbar-agents" style="background:var(--green);width:0%"></div></div>
+          </div>
+          <div class="stat-box s-purple">
+            <div class="sb-key">// tasks_completed</div>
+            <div class="sb-val s-purple" id="stat-tasks">–</div>
+            <div class="sb-desc">all time</div>
+            <div class="sb-bar"><div class="sb-bar-fill" id="sbar-tasks" style="background:var(--purple);width:0%"></div></div>
+          </div>
+          <div class="stat-box s-cyan">
+            <div class="sb-key">// delegated_tasks</div>
+            <div class="sb-val s-cyan" id="stat-del">–</div>
+            <div class="sb-desc">cross-agent assignments</div>
+            <div class="sb-bar"><div class="sb-bar-fill" id="sbar-del" style="background:var(--cyan);width:0%"></div></div>
+          </div>
+          <div class="stat-box s-orange">
+            <div class="sb-key">// gateway_status</div>
+            <div class="sb-val s-orange" id="stat-gw" style="font-size:1rem">checking...</div>
+            <div class="sb-desc" id="stat-gw-sub">connecting to openclaw</div>
+          </div>
         </div>
 
-        <div class="task-body">
-          <div class="resp-wrap">
-            <!-- Primary response -->
-            <div class="resp-box" id="respBox">
-              <div class="placeholder" id="ph">Agent response streams here…</div>
-              <div class="resp-text" id="rt" style="display:none"></div>
-            </div>
+        <div class="sec-hdr" style="margin-top:.5rem">
+          <div class="sec-title">quick_actions</div>
+        </div>
+        <div class="qa-grid" style="margin-bottom:1rem">
+          <button class="qa-item" onclick="showPanel('task')">
+            <div class="qa-cmd">assign_task</div>
+            <div class="qa-desc">send work to an agent</div>
+          </button>
+          <button class="qa-item" onclick="showPanel('create')">
+            <div class="qa-cmd">new_agent</div>
+            <div class="qa-desc">create &amp; register</div>
+          </button>
+          <button class="qa-item" onclick="showPanel('history')">
+            <div class="qa-cmd">tail history.log</div>
+            <div class="qa-desc">past tasks &amp; responses</div>
+          </button>
+          <button class="qa-item" onclick="openNetModal()">
+            <div class="qa-cmd">ifconfig</div>
+            <div class="qa-desc">open on mobile/other device</div>
+          </button>
+        </div>
 
-            <!-- Delegation results -->
-            <div class="deleg-box" id="delegBox">
-              <div class="deleg-hdr">🔀 Delegated Tasks</div>
-              <div id="delegItems"></div>
-            </div>
+        <div class="sec-hdr">
+          <div class="sec-title">recent_tasks.log</div>
+          <button class="sec-link" onclick="showPanel('history')">tail -f →</button>
+        </div>
+        <div class="recent-list" id="dashRecent" style="margin-bottom:1rem">
+          <div style="font-size:.7rem;color:var(--comment);padding:.5rem 0">// no tasks yet. assign one to get started.</div>
+        </div>
 
-            <!-- Debug log -->
-            <div class="dbg-bar" onclick="toggleDbg()">
-              <span>🔍 Debug</span>
-              <span id="logCnt" style="color:var(--accent2)"></span>
-              <span id="dbgToggle" style="margin-left:auto;font-size:.65rem;color:var(--muted)">▼</span>
-            </div>
-            <div class="dbg-log" id="dbgLog"></div>
+        <div class="sec-hdr">
+          <div class="sec-title">active_agents</div>
+          <button class="sec-link" onclick="showPanel('manage')">manage →</button>
+        </div>
+        <div class="agent-chips" id="dashAgents"></div>
+      </div>
+    </div>
 
-            <!-- Status -->
-            <div class="sbar">
-              <div class="sd sd-idle" id="sdot"></div>
-              <span id="slabel">Ready</span>
-              <span style="margin-left:auto;font-size:.63rem" id="chars"></span>
+    <!-- ══ TASK ══ -->
+    <div class="panel" id="panel-task">
+      <div id="noAgentView" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.6rem;color:var(--comment);text-align:center;padding:1rem">
+        <pre style="font-size:.6rem;color:var(--comment);opacity:.4;line-height:1.3">
+  ██████╗  ██████╗  ████████╗
+  ██╔══██╗██╔═══██╗ ╚══██╔══╝
+  ██████╔╝██║   ██║    ██║
+  ██╔══██╗██║   ██║    ██║
+  ██████╔╝╚██████╔╝    ██║
+  ╚═════╝  ╚═════╝     ╚═╝</pre>
+        <div style="font-size:.78rem;color:var(--text3)">$ select agent from sidebar to begin</div>
+        <div style="font-size:.68rem;color:var(--comment)">use <span style="color:var(--pink)">@AgentName</span> in tasks to auto-delegate</div>
+        <button onclick="showPanel('create')" style="margin-top:.4rem;background:rgba(80,250,123,.08);border:1px solid rgba(80,250,123,.2);color:var(--green);border-radius:var(--r);padding:.4rem .9rem;font-size:.7rem;cursor:pointer;font-family:var(--mono)">+ init new_agent</button>
+      </div>
+
+      <div class="task-layout" id="taskLayout" style="display:none">
+        <div class="task-main">
+          <div class="agent-hdr" id="agentHdr">
+            <div class="ah-indicator" id="ahInd"></div>
+            <div>
+              <div class="ah-name" id="ahName"></div>
+              <div class="ah-model" id="ahModel"></div>
+            </div>
+            <div class="ah-sep">//</div>
+            <div class="ah-session" id="ahSession"></div>
+            <div class="ah-btns">
+              <a class="ah-btn" id="ahOCLink" href="#" target="_blank">↗ openclaw</a>
+              <button class="ah-btn" onclick="clearConv()">✕ clear</button>
             </div>
           </div>
 
-          <!-- Input -->
-          <div class="inp-row">
-            <textarea class="task-inp" id="taskInp"
-              placeholder="Describe the task…&#10;&#10;Tip: use @AgentName to auto-delegate to another agent&#10;e.g. 'Review auth module and @QAEngineer write test cases for it'"
-              onkeydown="handleKey(event)"></textarea>
-            <div class="inp-btns">
-              <button class="btn-send" id="sendBtn" onclick="sendTask()">Send ↵</button>
-              <button class="bsm" onclick="clearResp()">Clear</button>
+          <div class="chat-area" id="chatArea">
+            <div class="chat-empty" id="chatEmpty">
+              <pre class="ce-ascii">  ╔══════════════════╗
+  ║  AGENT  TERMINAL ║
+  ║  waiting input   ║
+  ╚══════════════════╝</pre>
+              <h3>$ awaiting task...</h3>
+              <p>type a task below. use <span style="color:var(--pink)">@AgentName</span> to delegate to multiple agents simultaneously.</p>
             </div>
           </div>
-          <div class="hint">💡 Use <strong style="color:var(--purple)">@AgentName</strong> in your task to auto-assign sub-tasks to other agents. They run after the primary agent responds.</div>
+
+          <div class="status-bar">
+            <span class="stb-prefix">status:</span>
+            <div class="stb-led idle" id="stbLed"></div>
+            <span class="stb-text" id="stbText">idle</span>
+            <span class="stb-chars" id="stbChars"></span>
+          </div>
+
+          <div class="input-section">
+            <div class="input-prompt">
+              <span id="inpAgent" class="input-prompt-agent">root@nexus</span>
+              <span class="input-prompt-symbol">:~$</span>
+              <span style="color:var(--comment);font-size:.63rem;margin-left:.25rem;font-style:italic">// describe task. @mention to delegate.</span>
+            </div>
+            <div class="textarea-wrap">
+              <textarea class="task-inp" id="taskInput"
+                placeholder="e.g. write unit tests for auth module → @QAEngineer verify coverage..."
+                onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+              <div class="inp-toolbar">
+                <span class="inp-hint"><kbd>⌘↵</kbd> send · <code>@AgentName</code> delegate</span>
+                <button class="btn-clear" onclick="document.getElementById('taskInput').value='';autoResize(document.getElementById('taskInput'))">clear</button>
+                <button class="btn-send" id="sendBtn" onclick="sendTask()">▶ run</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right panel -->
+        <div class="task-right">
+          <div class="tr-section">
+            <div class="tr-title">// session_stats</div>
+            <div class="tr-stat"><span class="tr-stat-k">messages</span><span class="tr-stat-v g" id="ss-msgs">0</span></div>
+            <div class="tr-stat"><span class="tr-stat-k">chars_out</span><span class="tr-stat-v p" id="ss-chars">0</span></div>
+            <div class="tr-stat"><span class="tr-stat-k">delegations</span><span class="tr-stat-v c" id="ss-del">0</span></div>
+            <div class="tr-stat"><span class="tr-stat-k">session_id</span><span class="tr-stat-v" id="ss-id" style="color:var(--comment)">–</span></div>
+          </div>
+          <div class="tr-section" style="flex:1;overflow-y:auto">
+            <div class="tr-title">// quick_delegate</div>
+            <div class="quick-del-list" id="quickDelList">
+              <div style="font-size:.68rem;color:var(--comment)">// no other agents</div>
+            </div>
+          </div>
+          <div class="debug-section">
+            <div class="dbg-toggle" onclick="toggleDbg()">
+              <span style="color:var(--comment)">// ws.debug.log</span>
+              <span id="dbgCnt" style="font-size:.62rem;color:var(--cyan)"></span>
+              <span id="dbgArrow" style="font-size:.65rem">▼</span>
+            </div>
+            <div class="dbg-body" id="dbgBody"></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- HISTORY -->
+    <!-- ══ HISTORY ══ -->
     <div class="panel" id="panel-history">
+      <div class="hist-export-bar">
+        <button class="heb-btn" onclick="exportHist()">⬇ export.json</button>
+        <button class="heb-btn danger" onclick="clearHistory()">rm -rf history</button>
+        <div style="flex:1"></div>
+        <span style="font-size:.62rem;color:var(--comment)" id="histCount"></span>
+      </div>
+      <div class="hist-toolbar">
+        <input class="hist-search" id="histSearch" placeholder="// grep tasks..." oninput="filterHistory()">
+        <button class="hf-btn active" onclick="filterAgent('all',this)">all</button>
+        <div id="histAgentBtns" style="display:flex;gap:.3rem"></div>
+      </div>
       <div class="pscroll">
-        <div style="display:flex;align-items:center;margin-bottom:.8rem">
-          <div class="stitle" style="margin:0">Task History</div>
-          <button class="bsm" onclick="clearHistory()" style="margin-left:auto">🗑 Clear all</button>
-        </div>
-        <div id="histList"></div>
+        <div id="histList" class="hist-list"></div>
       </div>
     </div>
 
-    <!-- CREATE -->
+    <!-- ══ CREATE ══ -->
     <div class="panel" id="panel-create">
-      <div class="pscroll">
-        <div class="stitle">Create New Agent</div>
-        <div class="frow">
-          <div class="fg"><label class="fl">Agent Name</label><input class="fi" id="cName" placeholder="e.g. QAEngineer"></div>
-          <div class="fg"><label class="fl">Model</label>
-            <select class="fs" id="cModel">
-              <option value="ollama/minimax-m2.5:cloud">minimax-m2.5:cloud</option>
-              <option value="google/gemini-3.1-pro-preview">gemini-3.1-pro-preview</option>
-              <option value="google/gemini-3-pro-preview">gemini-3-pro-preview</option>
-              <option value="ollama/llama3">llama3</option>
-              <option value="ollama/mistral">mistral</option>
-              <option value="ollama/codellama">codellama</option>
-            </select>
+      <div class="create-layout">
+        <div class="create-form">
+          <div style="font-size:.65rem;color:var(--comment);margin-bottom:.85rem;font-style:italic">// init new agent — fill config and execute</div>
+          <div class="form-group">
+            <label class="form-label">agent_name<span style="color:var(--red)"> *</span></label>
+            <input class="form-input" id="cName" placeholder="e.g. QAEngineer, CodeReviewer..." oninput="updatePreview()">
           </div>
+          <div class="form-group">
+            <label class="form-label">model_provider</label>
+            <div class="model-select-grid" id="modelGrid">
+              <label class="model-opt selected">
+                <input type="radio" name="mdl" value="ollama/minimax-m2.5:cloud" checked onchange="updatePreview()">
+                <div class="model-radio"></div>
+                <div><div class="model-nm">minimax-m2.5</div><div class="model-pv">ollama/cloud</div></div>
+              </label>
+              <label class="model-opt">
+                <input type="radio" name="mdl" value="google/gemini-3.1-pro-preview" onchange="updatePreview()">
+                <div class="model-radio"></div>
+                <div><div class="model-nm">gemini-3.1-pro</div><div class="model-pv">google</div></div>
+              </label>
+              <label class="model-opt">
+                <input type="radio" name="mdl" value="google/gemini-3-pro-preview" onchange="updatePreview()">
+                <div class="model-radio"></div>
+                <div><div class="model-nm">gemini-3-pro</div><div class="model-pv">google</div></div>
+              </label>
+              <label class="model-opt">
+                <input type="radio" name="mdl" value="ollama/llama3" onchange="updatePreview()">
+                <div class="model-radio"></div>
+                <div><div class="model-nm">llama3</div><div class="model-pv">ollama/local</div></div>
+              </label>
+              <label class="model-opt">
+                <input type="radio" name="mdl" value="ollama/mistral" onchange="updatePreview()">
+                <div class="model-radio"></div>
+                <div><div class="model-nm">mistral</div><div class="model-pv">ollama/local</div></div>
+              </label>
+              <label class="model-opt">
+                <input type="radio" name="mdl" value="ollama/codellama" onchange="updatePreview()">
+                <div class="model-radio"></div>
+                <div><div class="model-nm">codellama</div><div class="model-pv">ollama/local</div></div>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">soul.md <span style="color:var(--comment);font-style:italic">(personality config)</span></label>
+            <div class="soul-tpls">
+              <span style="font-size:.6rem;color:var(--comment);align-self:center">templates:</span>
+              <button class="soul-tpl" onclick="setSoul('qa')">qa_engineer</button>
+              <button class="soul-tpl" onclick="setSoul('dev')">developer</button>
+              <button class="soul-tpl" onclick="setSoul('writer')">writer</button>
+              <button class="soul-tpl" onclick="setSoul('analyst')">analyst</button>
+            </div>
+            <textarea class="form-textarea" id="cSoul" placeholder="# Who You Are&#10;&#10;You are [Name], specialized in..." oninput="updatePreview()"></textarea>
+          </div>
+          <button class="btn-create" id="cBtn" onclick="createAgent()">▶ execute create_agent.sh</button>
+          <div class="feedback" id="cFb"></div>
         </div>
-        <div class="fg"><label class="fl">Personality — SOUL.md</label>
-          <textarea class="ft" id="cSoul" placeholder="# Who You Are&#10;&#10;You are [Name]..."></textarea>
+        <div class="create-preview">
+          <div style="font-size:.62rem;color:var(--comment);margin-bottom:.65rem;font-style:italic">// agent.config preview</div>
+          <div class="preview-box" id="previewBox">
+            <div class="pv-comment">// agent configuration</div>
+            <div class="pv-line"><span class="pv-key">id</span><span class="pv-eq"> = </span><span class="pv-val" id="pv-id">???</span></div>
+            <div class="pv-line"><span class="pv-key">model</span><span class="pv-eq"> = </span><span class="pv-val model" id="pv-model">minimax-m2.5:cloud</span></div>
+            <div class="pv-line"><span class="pv-key">status</span><span class="pv-eq"> = </span><span class="pv-val" style="color:var(--yellow)">pending_init</span></div>
+            <div class="pv-line"><span class="pv-key">workspace</span><span class="pv-eq"> = </span><span class="pv-val func">~/.openclaw/workspace-???</span></div>
+          </div>
+          <div class="pv-soul-label" style="margin-top:.75rem">// soul.md preview</div>
+          <div class="pv-soul-box" id="pvSoul">// waiting for input...</div>
         </div>
-        <button class="bpri" id="cBtn" onclick="createAgent()">Create &amp; Register Agent</button>
-        <div class="fst" id="cStatus"></div>
       </div>
     </div>
 
-    <!-- MANAGE -->
+    <!-- ══ MANAGE ══ -->
     <div class="panel" id="panel-manage">
       <div class="pscroll">
-        <div class="stitle">Manage Agents</div>
-        <div id="manageList"></div>
-        <div style="display:flex;gap:.5rem;margin-top:.7rem">
-          <button class="bpri bgr" onclick="fixAll()">⚡ Fix All Configs</button>
-          <button class="bsm" onclick="loadAgents()" style="padding:.45rem .8rem">↻ Refresh</button>
+        <div class="manage-bar">
+          <button class="mbar-btn go" onclick="fixAll()">⚡ fix_all_configs.sh</button>
+          <button class="mbar-btn" onclick="loadAgents()">↺ refresh</button>
         </div>
-        <div class="fst" id="fixSt"></div>
-        <div class="soul-box" id="soulBox">
-          <div style="font-size:.7rem;font-weight:600;color:var(--yellow);margin-bottom:.5rem">SOUL.md — <span id="soulBoxName"></span></div>
-          <textarea class="ft" id="soulTxt" style="min-height:110px"></textarea>
-          <div style="display:flex;align-items:center;gap:.4rem;margin-top:.45rem">
-            <label style="display:flex;align-items:center;gap:.3rem;font-size:.7rem;color:var(--muted);cursor:pointer">
-              <input type="checkbox" id="globalSoul" checked style="accent-color:var(--yellow)"> Global SOUL.md too
-            </label>
-            <button class="bpri" style="background:var(--yellow);color:var(--bg);margin:0;margin-left:auto;padding:.4rem .9rem" onclick="submitSoul()">Save</button>
-            <button class="bsm" onclick="closeSoul()">Cancel</button>
-          </div>
-          <div class="fst" id="soulSt"></div>
-        </div>
+        <div class="feedback" id="manageFb"></div>
+        <div class="manage-grid" id="manageGrid"></div>
       </div>
     </div>
 
-  </main>
+  </div>
+</div>
+</div>
+
+<!-- SOUL MODAL -->
+<div class="modal-bg" id="soulModal">
+  <div class="modal">
+    <h2><span>// edit soul.md — <span id="soulMName" style="color:var(--green)"></span></span><button class="modal-close" onclick="closeSoulModal()">✕</button></h2>
+    <div class="form-group">
+      <label class="form-label">soul.md content</label>
+      <textarea class="form-textarea" id="soulMText" style="min-height:200px;font-size:.72rem" placeholder="# Who You Are..."></textarea>
+    </div>
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem">
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:var(--text3);cursor:pointer">
+        <input type="checkbox" id="soulGlobal" checked style="accent-color:var(--green)"> also update global soul.md
+      </label>
+    </div>
+    <div style="display:flex;gap:.4rem">
+      <button onclick="submitSoul()" style="flex:1;background:rgba(80,250,123,.1);border:1px solid rgba(80,250,123,.25);color:var(--green);border-radius:var(--r);padding:.5rem;font-size:.72rem;font-weight:600;font-family:var(--mono);cursor:pointer">▶ write soul.md</button>
+      <button onclick="closeSoulModal()" style="background:transparent;border:1px solid var(--line2);color:var(--text3);border-radius:var(--r);padding:.5rem .85rem;font-size:.72rem;font-family:var(--mono);cursor:pointer">cancel</button>
+    </div>
+    <div class="feedback" id="soulFb"></div>
+  </div>
 </div>
 
 <!-- NETWORK MODAL -->
-<div class="modal-overlay" id="netModal">
+<div class="modal-bg" id="netModal">
   <div class="modal">
-    <h2>📱 Access from other devices <button class="modal-close" onclick="closeNetModal()">✕</button></h2>
-    <div id="netContent">Loading…</div>
+    <h2><span>// network.sh — remote access</span><button class="modal-close" onclick="closeNetModal()">✕</button></h2>
+    <div id="netContent"><div style="color:var(--comment);font-size:.72rem">$ ifconfig...</div></div>
   </div>
 </div>
 
 <script>
-// ── STATE ──
-let agents = [], selected = null, streaming = false;
-let soulId = null, dbgOpen = false, logCount = 0;
-let delegState = {}; // agentId → { status, response }
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let agents=[], selected=null, streaming=false;
+let soulId=null, dbgOpen=false, dbgN=0;
+let ss={msgs:0,chars:0,dels:0};
+let allTasks=[], histFilter='all', histQ='';
 
-const COLORS=[['#f78166','#2d1010'],['#79c0ff','#0d1f2d'],['#56d364','#0d2110'],
-  ['#bc8cff','#1a0d2d'],['#e3b341','#2d1e0d'],['#58a6ff','#0d1a2d'],['#3fb950','#0d200f'],['#ff7b72','#2d0f0d']];
-const clr  = id => COLORS[id.charCodeAt(0)%COLORS.length];
-const init = n  => (n||'?')[0].toUpperCase();
-const esc  = t  => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const AGENT_COLORS=['#50fa7b','#8be9fd','#bd93f9','#ff79c6','#ffb86c','#f1fa8c','#ff5555','#6be5fd'];
+const agentColor=id=>AGENT_COLORS[Math.abs([...id].reduce((a,c)=>a+c.charCodeAt(0),0))%AGENT_COLORS.length];
+const init=n=>(n||'?')[0].toUpperCase();
+const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmt=n=>n>=1000?(n/1000).toFixed(1)+'k':String(n);
+const ts=()=>new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
-// ── MOBILE SIDEBAR ──
-function toggleSidebar(){document.getElementById('sidebar').classList.toggle('mob-open');}
+const SOULS={
+  qa:`# QA Engineer\n\nYou are a meticulous QA Engineer with deep expertise in testing strategies, bug detection, and quality processes.\n\n## Style\n- Systematic and thorough\n- Clear bug reports with exact reproduction steps\n- Focus on edge cases and boundary conditions\n\n## Skills\n- Test case design (functional, regression, edge cases)\n- API and UI testing methodology\n- Defect lifecycle and test automation strategy`,
+  dev:`# Senior Developer\n\nYou are a senior software engineer with 10+ years building scalable systems. Direct, specific, no fluff.\n\n## Style\n- Suggest concrete improvements with code examples\n- Point out security issues and performance issues\n- Praise good patterns\n\n## Focus\n- Code architecture and clarity\n- Security vulnerabilities\n- Performance optimization\n- Design patterns and best practices`,
+  writer:`# Technical Writer\n\nYou are a skilled technical writer specializing in clear, precise documentation and content.\n\n## Style\n- Adapt tone to audience\n- Concise but comprehensive\n- Strong structure and navigation\n\n## Specialties\n- Technical documentation and API docs\n- Blog posts and tutorials\n- Business communication\n- README and developer guides`,
+  analyst:`# Data Analyst\n\nYou are a data analyst who turns raw data into actionable insights with clarity.\n\n## Style\n- Data-driven and objective\n- Clear visualizations of complex information\n- Honest about data limitations\n\n## Skills\n- Statistical analysis\n- Trend analysis and forecasting\n- Business intelligence\n- Data storytelling`,
+};
 
-// ── PANELS ──
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
 function showPanel(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-item,[id^="htab-"]').forEach(b=>b.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
-  ['task','history','create','manage'].forEach((n,i)=>document.querySelectorAll('.tab')[i].classList.toggle('active',n===name));
-  if(name==='history') loadHistory();
-  if(name==='manage')  renderManage();
+  ['dashboard','task','history','create','manage'].forEach(n=>{
+    document.getElementById(`nav-${n}`)?.classList.toggle('active',n===name);
+    document.getElementById(`htab-${n}`)?.classList.toggle('active',n===name);
+  });
+  if(name==='history')loadHistory();
+  if(name==='manage')renderManage();
+  if(name==='dashboard')renderDash();
+  closeSidebar();
 }
 
-// ── GATEWAY STATUS ──
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('mob-open');document.getElementById('sbOverlay').classList.toggle('show');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('mob-open');document.getElementById('sbOverlay').classList.remove('show');}
+
+// ═══════════════════════════════════════════
+// GATEWAY
+// ═══════════════════════════════════════════
 async function checkGateway(){
-  const dot=document.getElementById('gwDot'), lbl=document.getElementById('gwLabel');
+  const led=document.getElementById('gwLed');
+  const prompt=document.getElementById('gwPrompt');
+  const topLed=document.getElementById('topLed');
+  const topText=document.getElementById('topGwText');
   try{
     const d=await fetch('/api/debug').then(r=>r.json());
-    dot.className='dot dot-on'; lbl.textContent=`Online·${d.configAgentsList?.length||0}`;
-  }catch{dot.className='dot dot-off'; lbl.textContent='Offline';}
+    const n=d.configAgentsList?.length||0;
+    led.className='gw-led on'; prompt.textContent=`online [${n} agents]`;
+    topLed.style.cssText='width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)';
+    topText.textContent='online';
+    document.getElementById('stat-gw').textContent='ONLINE';
+    document.getElementById('stat-gw').style.color='var(--green)';
+    document.getElementById('stat-gw').style.fontSize='.9rem';
+    document.getElementById('stat-gw-sub').textContent=`${n} agents registered`;
+  }catch{
+    led.className='gw-led off'; prompt.textContent='offline [connection refused]';
+    topLed.style.cssText='width:6px;height:6px;border-radius:50%;background:var(--red)';
+    topText.textContent='offline';
+    document.getElementById('stat-gw').textContent='OFFLINE';
+    document.getElementById('stat-gw').style.color='var(--red)';
+    document.getElementById('stat-gw-sub').textContent='cannot reach gateway';
+  }
 }
 
-// ── AGENTS ──
+// ═══════════════════════════════════════════
+// AGENTS
+// ═══════════════════════════════════════════
 async function loadAgents(){
   try{agents=await fetch('/api/agents').then(r=>r.json());}catch{agents=[];}
-  renderSidebar(); renderManage();
+  renderSidebar(); renderManage(); renderDashAgents(); updateQuickDel();
+  renderHistAgentBtns();
+  document.getElementById('stat-agents').textContent=agents.length;
+  document.getElementById('sbar-agents').style.width=Math.min(100,agents.length*15)+'%';
 }
 
 function renderSidebar(){
   const el=document.getElementById('sbAgents');
-  if(!agents.length){el.innerHTML='<div style="padding:.4rem .5rem;font-size:.72rem;color:var(--muted)">No agents</div>';return;}
+  if(!agents.length){el.innerHTML='<div style="font-size:.68rem;color:var(--comment);padding:.3rem .4rem">// no agents</div>';return;}
   el.innerHTML=agents.map(a=>{
-    const[fg,bg]=clr(a.id),ok=a.inConfig&&a.workspaceOk;
-    return `<button class="ab${selected?.id===a.id?' sel':''}" onclick="selectAgent('${a.id}')">
-      <div class="av" style="background:${bg};color:${fg}">${init(a.name)}</div>
-      <span class="abn">${a.name}</span>
-      <span class="abg ${ok?'bok':'berr'}">${ok?'✓':'!'}</span>
+    const col=agentColor(a.id);
+    const ok=a.inConfig&&a.workspaceOk;
+    return `<button class="agent-row${selected?.id===a.id?' selected':''}" onclick="selectAgent('${a.id}')">
+      <span class="ar-sigil" style="${selected?.id===a.id?`color:${col}`:''}">&gt;</span>
+      <span class="ar-name" style="${selected?.id===a.id?`color:${col}`:''}">${a.name}</span>
+      <div class="ar-dot ${ok?'ar-ok':'ar-err'}"></div>
     </button>`;
   }).join('');
 }
@@ -414,384 +1197,435 @@ function renderSidebar(){
 function selectAgent(id){
   selected=agents.find(a=>a.id===id);
   if(!selected)return;
-  renderSidebar();
-  const[fg,bg]=clr(selected.id);
-  document.getElementById('tAv').style.cssText=`background:${bg};color:${fg}`;
-  document.getElementById('tAv').textContent=init(selected.name);
-  document.getElementById('tName').textContent=selected.name;
-  document.getElementById('tModel').textContent=selected.model;
-  document.getElementById('tOC').href=`http://127.0.0.1:18789/chat?session=agent:${selected.id}:main`;
-  document.getElementById('noAgent').style.display='none';
-  document.getElementById('taskPane').style.display='flex';
-  clearResp(); showPanel('task');
-  document.getElementById('sidebar').classList.remove('mob-open');
+  renderSidebar(); updateQuickDel();
+  const col=agentColor(selected.id);
+  document.getElementById('ahName').textContent=selected.name;
+  document.getElementById('ahName').style.color=col;
+  document.getElementById('ahModel').textContent=selected.model||'';
+  document.getElementById('ahSession').textContent=`agent:${selected.id}:main`;
+  document.getElementById('ahOCLink').href=`http://127.0.0.1:18789/chat?session=agent:${selected.id}:main`;
+  document.getElementById('ahInd').style.background=col;
+  document.getElementById('ahInd').style.boxShadow=`0 0 6px ${col}`;
+  document.getElementById('inpAgent').textContent=selected.id;
+  document.getElementById('inpAgent').style.color=col;
+  document.getElementById('ss-id').textContent=selected.id.substring(0,12);
+  document.getElementById('noAgentView').style.display='none';
+  document.getElementById('taskLayout').style.display='grid';
+  showPanel('task');
 }
 
-// ── DEBUG LOG ──
-function addLog(msg,type=''){
-  logCount++;
-  const el=document.getElementById('dbgLog');
-  const d=document.createElement('div');
-  d.className=`ll ${type}`; d.textContent=msg; el.appendChild(d);
-  el.scrollTop=99999;
-  document.getElementById('logCnt').textContent=`(${logCount})`;
-}
-function clearLogs(){logCount=0;document.getElementById('dbgLog').innerHTML='';document.getElementById('logCnt').textContent='';}
-function toggleDbg(){
-  dbgOpen=!dbgOpen;
-  document.getElementById('dbgLog').classList.toggle('open',dbgOpen);
-  document.getElementById('dbgToggle').textContent=dbgOpen?'▲':'▼';
-}
-
-// ── STATUS ──
-function setSt(type,text){
-  document.getElementById('sdot').className=`sd sd-${type==='work'?'work':type==='done'?'done':type==='err'?'err':'idle'}`;
-  document.getElementById('slabel').textContent=text;
-}
-
-// ── DELEGATION UI ──
-function initDelegUI(delegations){
-  delegState={};
-  const box=document.getElementById('delegBox');
-  const items=document.getElementById('delegItems');
-  if(!delegations||!delegations.length){box.classList.remove('show');return;}
-  box.classList.add('show');
-  items.innerHTML=delegations.map(d=>{
-    delegState[d.agentId]='pending';
-    const[fg,bg]=clr(d.agentId);
-    return `<div class="deleg-item" id="di-${d.agentId}">
-      <div class="deleg-item-hdr">
-        <div class="d-av" style="background:${bg};color:${fg}">${init(d.agentName)}</div>
-        <span class="d-name">${d.agentName}</span>
-        <span class="d-status ds-pending" id="ds-${d.agentId}">Pending</span>
-      </div>
-      <div class="d-resp" id="dr-${d.agentId}">Waiting…</div>
-    </div>`;
+function updateQuickDel(){
+  const el=document.getElementById('quickDelList');
+  if(!el)return;
+  const others=agents.filter(a=>a.id!==selected?.id);
+  if(!others.length){el.innerHTML='<div style="font-size:.68rem;color:var(--comment)">// select an agent first</div>';return;}
+  el.innerHTML=others.slice(0,6).map(a=>{
+    const col=agentColor(a.id);
+    return `<button class="qd-item" onclick="insertAt('@${a.name}')">
+      <span class="qd-at">@</span>
+      <span class="qd-name" style="color:${col}">${a.name}</span>
+      <span class="qd-badge">${(a.model||'').split('/').pop().substring(0,10)}</span>
+    </button>`;
   }).join('');
 }
 
-function updateDeleg(agentId,status,text){
-  const el=document.getElementById(`ds-${agentId}`);
-  const re=document.getElementById(`dr-${agentId}`);
-  if(!el)return;
-  el.className=`d-status ${status==='running'?'ds-running':status==='done'?'ds-done':status==='error'?'ds-err':'ds-pending'}`;
-  el.textContent=status.charAt(0).toUpperCase()+status.slice(1);
-  if(text&&re) re.textContent=text.substring(0,120)+(text.length>120?'…':'');
+function insertAt(mention){
+  const inp=document.getElementById('taskInput');
+  const s=inp.selectionStart,v=inp.value;
+  const pre=v[s-1]===undefined||v[s-1]===' '?'':' ';
+  inp.value=v.slice(0,s)+pre+mention+' '+v.slice(s);
+  inp.focus();autoResize(inp);
 }
 
-// ── SEND TASK ──
+// ═══════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════
+function renderDash(){
+  const del=allTasks.filter(t=>t.fromAgent).length;
+  document.getElementById('stat-tasks').textContent=fmt(allTasks.length);
+  document.getElementById('stat-del').textContent=fmt(del);
+  document.getElementById('sbar-tasks').style.width=Math.min(100,allTasks.length*5)+'%';
+  document.getElementById('sbar-del').style.width=del?Math.min(100,(del/Math.max(allTasks.length,1))*100)+'%':'0%';
+
+  const rec=document.getElementById('dashRecent');
+  if(!allTasks.length){rec.innerHTML='<div style="font-size:.68rem;color:var(--comment);padding:.4rem 0">// no tasks yet. run assign_task.sh to begin.</div>';return;}
+  rec.innerHTML=allTasks.slice(0,5).map(t=>`
+    <div class="recent-item" onclick="showPanel('history')">
+      <div class="ri-left">
+        <div class="ri-header">
+          <span class="ri-agent" style="color:${agentColor(t.agentId||'a')}">${esc(t.agentName)}</span>
+          ${t.fromAgent?`<span style="color:var(--pink);font-size:.6rem">← ${esc(t.fromAgent)}</span>`:''}
+          <span class="ri-time">${new Date(t.createdAt).toLocaleTimeString()}</span>
+        </div>
+        <div class="ri-task">$ ${esc(t.task.substring(0,70))}</div>
+        <div class="ri-resp">&gt; ${esc((t.response||'').substring(0,80))}…</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderDashAgents(){
+  const el=document.getElementById('dashAgents');
+  if(!el)return;
+  el.innerHTML=agents.map(a=>{
+    const col=agentColor(a.id);
+    const ok=a.inConfig&&a.workspaceOk;
+    return `<button class="agent-chip-dash" onclick="selectAgent('${a.id}')" style="border-color:${ok?col+'40':'var(--red)33'}">
+      <div class="acd-dot" style="background:${col}"></div>
+      <span style="color:${col}">${a.name}</span>
+      <span style="font-size:.6rem;color:var(--comment)">${ok?'[ready]':'[err]'}</span>
+    </button>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// SEND TASK
+// ═══════════════════════════════════════════
 function handleKey(e){if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();sendTask();}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+
+function setSt(type,text){
+  const led=document.getElementById('stbLed');
+  led.className='stb-led '+(type==='work'?'work':type==='done'?'done':type==='err'?'err':'idle');
+  document.getElementById('stbText').textContent=text;
+}
+
+function addDbg(msg,type=''){
+  dbgN++;
+  const el=document.getElementById('dbgBody');
+  const d=document.createElement('div');
+  d.className=`dl ${type}`; d.textContent=`[${ts()}] ${msg}`;
+  el.appendChild(d);if(el.children.length>100)el.removeChild(el.firstChild);
+  el.scrollTop=99999;
+  document.getElementById('dbgCnt').textContent=`(${dbgN})`;
+}
+function clearDbg(){dbgN=0;document.getElementById('dbgBody').innerHTML='';document.getElementById('dbgCnt').textContent='';}
+function toggleDbg(){dbgOpen=!dbgOpen;document.getElementById('dbgBody').classList.toggle('open',dbgOpen);document.getElementById('dbgArrow').textContent=dbgOpen?'▲':'▼';}
+
+function appendMsg(type,content,name){
+  const area=document.getElementById('chatArea');
+  const empty=document.getElementById('chatEmpty');
+  if(empty)empty.style.display='none';
+  const col=type==='user'?'var(--orange)':agentColor(name||selected?.id||'a');
+  const tag=type==='user'?'you':name||selected?.name||'agent';
+  const wrap=document.createElement('div');
+  wrap.className='msg-wrap';
+  if(type==='user'){
+    wrap.innerHTML=`<div class="msg-meta"><span class="msg-tag-user">[${tag}]</span> <span class="msg-time">${ts()}</span></div><div class="msg-body-user">${esc(content)}</div>`;
+  }else{
+    wrap.innerHTML=`<div class="msg-meta"><span class="msg-tag-agent" style="color:${col}">[${tag}]</span> <span class="msg-time">${ts()}</span></div><div class="msg-body-agent streaming" id="curMsg"></div>`;
+  }
+  area.appendChild(wrap);area.scrollTop=99999;
+}
+
+function updateCurMsg(text){
+  const el=document.getElementById('curMsg');
+  if(!el)return;
+  el.innerHTML=esc(text)+'<span class="cursor-blink"></span>';
+  document.getElementById('chatArea').scrollTop=99999;
+}
+function finalizeCurMsg(text){
+  const el=document.getElementById('curMsg');
+  if(!el)return;
+  el.innerHTML=esc(text);el.classList.remove('streaming');el.removeAttribute('id');
+}
+
+let delegWrap=null;
+function appendDelegSection(delegations){
+  const area=document.getElementById('chatArea');
+  const blk=document.createElement('div');
+  blk.className='deleg-block';
+  blk.innerHTML=`<div class="db-header">delegated to ${delegations.length} agent${delegations.length>1?'s':''}</div>${delegations.map(d=>`
+    <div class="deleg-task" id="dt-${d.agentId}">
+      <div class="dt-hdr">
+        <span class="dt-name" style="color:${agentColor(d.agentId)}">&gt; ${d.agentName}</span>
+        <span class="dt-status dts-pending" id="dts-${d.agentId}">pending</span>
+      </div>
+      <div class="dt-resp" id="dtr-${d.agentId}">// waiting...</div>
+    </div>`).join('')}`;
+  area.appendChild(blk);area.scrollTop=99999;
+  delegWrap=blk;
+}
+
+function updateDt(id,status,text){
+  const s=document.getElementById(`dts-${id}`);
+  const r=document.getElementById(`dtr-${id}`);
+  if(s){s.className=`dt-status dts-${status}`;s.textContent=status;}
+  if(r&&text)r.textContent=text.substring(0,120)+(text.length>120?'…':'');
+}
 
 async function sendTask(){
   if(!selected||streaming)return;
-  const task=document.getElementById('taskInp').value.trim();
+  const task=document.getElementById('taskInput').value.trim();
   if(!task)return;
-
-  streaming=true;
-  clearLogs();
-  clearDeleg();
+  streaming=true;clearDbg();delegWrap=null;
   document.getElementById('sendBtn').disabled=true;
-  document.getElementById('sendBtn').textContent='Sending…';
-  document.getElementById('taskInp').value='';
+  document.getElementById('sendBtn').innerHTML='⏳ running...';
+  document.getElementById('taskInput').value='';
+  autoResize(document.getElementById('taskInput'));
+  setSt('work','connecting...');
+  appendMsg('user',task);
+  appendMsg('agent','',selected.name);
+  ss.msgs++;document.getElementById('ss-msgs').textContent=ss.msgs;
 
-  setSt('work','Connecting…');
-  document.getElementById('ph').style.display='none';
-  const rt=document.getElementById('rt');
-  rt.style.display='block'; rt.innerHTML='<span class="cursor"></span>';
-  document.getElementById('respBox').classList.add('streaming');
-
-  let full='', chars=0;
-  addLog(`→ ${selected.id}: ${task.substring(0,50)}…`,'');
+  let full='',totalC=0;
+  addDbg(`exec: ${selected.id} → ${task.substring(0,40)}…`,'info');
 
   try{
-    const res=await fetch('/api/task',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({agentId:selected.id,task}),
-    });
-    if(!res.ok) throw new Error(`Server ${res.status}`);
-
-    const reader=res.body.getReader(), dec=new TextDecoder();
+    const res=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:selected.id,task})});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const reader=res.body.getReader(),dec=new TextDecoder();
     let buf='';
-
     while(true){
-      const{done,value}=await reader.read();
-      if(done)break;
+      const{done,value}=await reader.read();if(done)break;
       buf+=dec.decode(value,{stream:true});
-      const lines=buf.split('\n'); buf=lines.pop();
-
+      const lines=buf.split('\n');buf=lines.pop();
       for(const line of lines){
         if(!line.startsWith('data:'))continue;
         const raw=line.slice(5).trim();
         if(raw==='[DONE]'||!raw)continue;
-        let p; try{p=JSON.parse(raw);}catch{continue;}
-
-        // Log
-        if(p.log){
-          const isErr=p.log.includes('ERROR')||p.log.includes('error');
-          const isOk=p.log.includes('✓')||p.log.includes('OK')||p.log.includes('Accepted');
-          addLog(p.log,isErr?'err':isOk?'ok':'');
-          if(isErr&&!dbgOpen)toggleDbg();
-          continue;
-        }
-
-        // Delegation detected — show UI
-        if(p.type==='delegation_detected'){
-          initDelegUI(p.agents);
-          addLog(`🔀 Delegating to: ${p.agents.map(a=>a.agentName).join(', ')}`,'ok');
-          continue;
-        }
-
-        // Delegation started
-        if(p.type==='delegation_start'){
-          updateDeleg(p.agentId,'running','Working…');
-          addLog(`[${p.agentName}] Starting…`,'');
-          continue;
-        }
-
-        // Delegation chunk
-        if(p.delegationChunk!==undefined){
-          const c=typeof p.delegationChunk==='string'?p.delegationChunk:JSON.stringify(p.delegationChunk);
-          const dr=document.getElementById(`dr-${p.agentId}`);
-          if(dr) dr.textContent=(dr.textContent==='Working…'?'':dr.textContent)+c;
-          continue;
-        }
-
-        // Delegation done
-        if(p.delegationDone){
-          updateDeleg(p.agentId,'done',p.response);
-          addLog(`[${p.agentName}] ✓ Done`,'ok');
-          continue;
-        }
-
-        // Delegation error
-        if(p.delegationError){
-          updateDeleg(p.agentId,'error',p.delegationError);
-          addLog(`[${p.agentName}] Error: ${p.delegationError}`,'err');
-          continue;
-        }
-
-        // Primary chunk
-        if(p.chunk!==undefined){
-          const c=typeof p.chunk==='string'?p.chunk:JSON.stringify(p.chunk);
-          full+=c; chars+=c.length;
-          rt.innerHTML=esc(full)+'<span class="cursor"></span>';
-          document.getElementById('respBox').scrollTop=999999;
-          document.getElementById('chars').textContent=`${chars} chars`;
-          continue;
-        }
-
-        // Error
-        if(p.error){
-          addLog(`ERROR: ${p.error}`,'err');
-          if(!dbgOpen)toggleDbg();
-          rt.innerHTML=esc(`⚠ ${p.error}`);
-          setSt('err','Error');
-          break;
-        }
-
-        if(p.done){addLog('✓ Complete','ok');break;}
+        let p;try{p=JSON.parse(raw);}catch{continue;}
+        if(p.log){const ie=p.log.includes('ERROR')||p.log.includes('error');const io=p.log.includes('✓')||p.log.includes('OK');addDbg(p.log,ie?'err':io?'ok':'');if(ie&&!dbgOpen)toggleDbg();continue;}
+        if(p.type==='delegation_detected'){appendDelegSection(p.agents);ss.dels+=p.agents.length;document.getElementById('ss-del').textContent=ss.dels;continue;}
+        if(p.type==='delegation_start'){updateDt(p.agentId,'running','running...');continue;}
+        if(p.delegationChunk!==undefined){const el=document.getElementById(`dtr-${p.agentId}`);if(el){const c=typeof p.delegationChunk==='string'?p.delegationChunk:JSON.stringify(p.delegationChunk);el.textContent=(el.textContent==='// waiting...'?'':el.textContent)+c;}continue;}
+        if(p.delegationDone){updateDt(p.agentId,'done',p.response);addDbg(`done: ${p.agentName}`,'ok');continue;}
+        if(p.delegationError){updateDt(p.agentId,'err',p.delegationError);continue;}
+        if(p.chunk!==undefined){const c=typeof p.chunk==='string'?p.chunk:JSON.stringify(p.chunk);full+=c;totalC+=c.length;updateCurMsg(full);document.getElementById('stbChars').textContent=`${totalC.toLocaleString()} chars`;document.getElementById('ss-chars').textContent=(ss.chars+totalC).toLocaleString();continue;}
+        if(p.error){addDbg(`ERR: ${p.error}`,'err');if(!dbgOpen)toggleDbg();finalizeCurMsg(`// error: ${p.error}`);setSt('err','error — check debug log');break;}
+        if(p.done){addDbg('exit 0','ok');break;}
       }
     }
-
-    if(!full.startsWith('⚠')){
-      rt.innerHTML=esc(full)||'<span style="color:var(--muted);font-style:italic">Empty response</span>';
-      setSt('done',`Done · ${new Date().toLocaleTimeString()}`);
-      await fetch('/api/tasks/save',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({agentId:selected.id,agentName:selected.name,task,response:full,status:'done'})}).catch(()=>{});
+    if(!full.startsWith('// error')){
+      finalizeCurMsg(full||'// (empty response)');
+      setSt('done',`exit 0 [${ts()}]`);
+      ss.chars+=totalC;
+      await fetch('/api/tasks/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:`${Date.now()}-${Math.random().toString(36).slice(2,5)}`,agentId:selected.id,agentName:selected.name,task,response:full,status:'done',createdAt:new Date().toISOString()})}).catch(()=>{});
+      await reloadTasks();renderDash();
     }
-  }catch(e){
-    addLog(`FATAL: ${e.message}`,'err');
-    if(!dbgOpen)toggleDbg();
-    rt.innerHTML=esc(`⚠ ${e.message}`);
-    setSt('err','Error');
-  }
-
-  document.getElementById('respBox').classList.remove('streaming');
+  }catch(e){addDbg(`FATAL: ${e.message}`,'err');if(!dbgOpen)toggleDbg();finalizeCurMsg(`// fatal: ${e.message}`);setSt('err','fatal error');}
   streaming=false;
   document.getElementById('sendBtn').disabled=false;
-  document.getElementById('sendBtn').textContent='Send ↵';
+  document.getElementById('sendBtn').innerHTML='▶ run';
 }
 
-function clearDeleg(){
-  delegState={};
-  document.getElementById('delegBox').classList.remove('show');
-  document.getElementById('delegItems').innerHTML='';
+function clearConv(){
+  document.getElementById('chatArea').innerHTML='<div class="chat-empty" id="chatEmpty"><pre class="ce-ascii">  ╔══════════════════╗\n  ║  AGENT  TERMINAL ║\n  ║  waiting input   ║\n  ╚══════════════════╝</pre><h3>$ awaiting task...</h3><p>type a task below. use <span style="color:var(--pink)">@AgentName</span> to delegate.</p></div>';
+  setSt('idle','idle');document.getElementById('stbChars').textContent='';
+  ss={msgs:0,chars:0,dels:0};
+  ['ss-msgs','ss-chars','ss-del'].forEach(id=>{document.getElementById(id).textContent='0';});
+  clearDbg();delegWrap=null;
 }
 
-function clearResp(){
-  document.getElementById('ph').style.display='block';
-  document.getElementById('rt').style.display='none';
-  document.getElementById('rt').innerHTML='';
-  document.getElementById('respBox').classList.remove('streaming');
-  document.getElementById('chars').textContent='';
-  clearDeleg(); setSt('idle','Ready');
+// ═══════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════
+async function reloadTasks(){
+  try{allTasks=await fetch('/api/tasks').then(r=>r.json());}catch{allTasks=[];}
+  const b=document.getElementById('histBadge');
+  if(b)b.textContent=allTasks.length||'';
 }
-function clearConv(){clearResp();clearLogs();}
+async function loadHistory(){await reloadTasks();renderHistory();}
 
-// ── HISTORY ──
-async function loadHistory(){
-  const tasks=await fetch('/api/tasks').then(r=>r.json()).catch(()=>[]);
+function renderHistory(){
   const el=document.getElementById('histList');
-  if(!tasks.length){el.innerHTML='<div style="color:var(--muted);font-size:.78rem;text-align:center;padding:2rem">No tasks yet</div>';return;}
-  el.innerHTML=tasks.map(t=>{
-    const[fg,bg]=clr(t.agentId||'a');
-    const isDel=t.fromAgent;
-    return `<div class="hcard${isDel?' delegated':''}" onclick="replayTask('${t.id}')">
+  const cnt=document.getElementById('histCount');
+  let tasks=allTasks;
+  if(histFilter!=='all')tasks=tasks.filter(t=>t.agentId===histFilter);
+  if(histQ)tasks=tasks.filter(t=>t.task.toLowerCase().includes(histQ)||t.agentName.toLowerCase().includes(histQ)||(t.response||'').toLowerCase().includes(histQ));
+  if(cnt)cnt.textContent=`// ${tasks.length} entries`;
+  if(!tasks.length){el.innerHTML=`<div class="hist-empty">${histQ?`// grep: no match for "${esc(histQ)}"`:allTasks.length?'// no results for this filter':'// history.log is empty\n// assign tasks to populate'}</div>`;return;}
+  el.innerHTML=tasks.map(t=>`
+    <div class="hist-card${t.fromAgent?' delegated':''}" onclick="replayTask('${t.id}')">
       <div class="hc-top">
-        <div class="hc-av" style="background:${bg};color:${fg}">${init(t.agentName||'?')}</div>
-        <span class="hc-name">${t.agentName}</span>
-        ${isDel?`<span class="hc-from">← from ${t.fromAgent}</span>`:''}
-        <span class="hc-time" style="margin-left:${isDel?'0':'auto'}">${new Date(t.createdAt).toLocaleString()}</span>
+        <span class="hc-agent" style="color:${agentColor(t.agentId||'a')}">[${esc(t.agentName||'?')}]</span>
+        ${t.fromAgent?`<span class="hc-from">← delegated from ${esc(t.fromAgent)}</span>`:''}
+        <span class="hc-time">${new Date(t.createdAt).toLocaleString()}</span>
       </div>
-      <div class="hc-task">📤 ${esc(t.task.substring(0,80))}</div>
-      <div class="hc-resp">💬 ${esc((t.response||'').substring(0,100))}…</div>
-    </div>`;
-  }).join('');
+      <div class="hc-task">$ ${esc(t.task.substring(0,80))}</div>
+      <div class="hc-resp">&gt; ${esc((t.response||'').substring(0,100))}…</div>
+    </div>`).join('');
 }
 
-async function replayTask(id){
-  const tasks=await fetch('/api/tasks').then(r=>r.json()).catch(()=>[]);
-  const t=tasks.find(x=>x.id===id); if(!t)return;
-  const ag=agents.find(a=>a.id===t.agentId); if(ag)selectAgent(ag.id);
-  document.getElementById('rt').innerHTML=esc(t.response||'');
-  document.getElementById('rt').style.display='block';
-  document.getElementById('ph').style.display='none';
-  setSt('done',`History · ${new Date(t.createdAt).toLocaleString()}`);
+function renderHistAgentBtns(){
+  const el=document.getElementById('histAgentBtns');
+  if(!el)return;
+  el.innerHTML=agents.map(a=>`<button class="hf-btn" onclick="filterAgent('${a.id}',this)">${a.name}</button>`).join('');
+}
+
+function filterAgent(id,btn){
+  histFilter=id;document.querySelectorAll('.hf-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');renderHistory();
+}
+function filterHistory(){histQ=document.getElementById('histSearch').value.toLowerCase();renderHistory();}
+
+function replayTask(id){
+  const t=allTasks.find(x=>x.id===id);if(!t)return;
+  const ag=agents.find(a=>a.id===t.agentId);if(ag)selectAgent(ag.id);
+  appendMsg('agent',t.response||'// (empty)',t.agentName);
+  finalizeCurMsg(t.response||'// (empty)');
+  setSt('done',`// loaded from history [${new Date(t.createdAt).toLocaleString()}]`);
   showPanel('task');
 }
 
 async function clearHistory(){
-  if(!confirm('Clear all task history?'))return;
+  if(!confirm('rm -rf portal-tasks.json\nThis cannot be undone.'))return;
   await fetch('/api/tasks',{method:'DELETE'});
-  loadHistory();
+  allTasks=[];renderHistory();renderDash();
+  document.getElementById('histBadge').textContent='';
 }
 
-// ── CREATE ──
+function exportHist(){
+  const b=new Blob([JSON.stringify(allTasks,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download=`nexus-tasks-${Date.now()}.json`;a.click();
+}
+
+// ═══════════════════════════════════════════
+// CREATE
+// ═══════════════════════════════════════════
+function setSoul(k){document.getElementById('cSoul').value=SOULS[k]||'';updatePreview();}
+
+function updatePreview(){
+  const name=document.getElementById('cName').value.trim()||'???';
+  const soul=document.getElementById('cSoul').value||'// waiting for input...';
+  const model=(document.querySelector('input[name="mdl"]:checked')?.value||'minimax-m2.5:cloud').split('/').pop();
+  const id=name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  document.getElementById('pv-id').textContent=id||'???';
+  document.getElementById('pv-model').textContent=model;
+  document.getElementById('pvSoul').textContent=soul.substring(0,350)+(soul.length>350?'\n// ...':'');
+  const previewEl=document.getElementById('previewBox').querySelector('#pv-id');
+  if(previewEl)document.querySelector('.pv-val.func').textContent=`~/.openclaw/workspace-${id||'???'}`;
+  document.querySelectorAll('.model-opt').forEach(c=>{c.classList.toggle('selected',c.querySelector('input')?.checked);});
+}
+
 async function createAgent(){
   const name=document.getElementById('cName').value.trim();
-  const model=document.getElementById('cModel').value;
+  const model=document.querySelector('input[name="mdl"]:checked')?.value;
   const soul=document.getElementById('cSoul').value.trim();
-  const btn=document.getElementById('cBtn'),st=document.getElementById('cStatus');
-  if(!name||!soul)return showFS(st,'Name and SOUL required.','ferr');
-  btn.disabled=true;btn.textContent='Creating…';st.style.display='none';
+  const btn=document.getElementById('cBtn');
+  const fb=document.getElementById('cFb');
+  if(!name||!soul)return showFb(fb,'// error: agent_name and soul.md are required','fb-err');
+  btn.disabled=true;btn.innerHTML='⏳ executing...';fb.style.display='none';
   try{
     const res=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model,soul})});
     const d=await res.json();
-    showFS(st,`${res.ok?'✅':'⚠️'} ${d.message||d.error}\n\nCLI: ${d.cliResult?.stdout||d.cliResult?.error||''}`,res.ok?'fok':'fwarn');
-    if(res.ok){document.getElementById('cName').value='';document.getElementById('cSoul').value='';await loadAgents();}
-  }catch{showFS(st,'❌ Network error','ferr');}
-  finally{btn.disabled=false;btn.textContent='Create & Register Agent';}
+    if(res.ok){showFb(fb,`// exit 0: agent "${d.entry?.id}" created\n// select from sidebar to assign tasks`,'fb-ok');document.getElementById('cName').value='';document.getElementById('cSoul').value='';updatePreview();await loadAgents();}
+    else showFb(fb,`// error: ${d.error||'create failed'}${d.cliResult?.error?'\n'+d.cliResult.error:''}`,'fb-err');
+  }catch{showFb(fb,'// fatal: network error','fb-err');}
+  finally{btn.disabled=false;btn.innerHTML='▶ execute create_agent.sh';}
 }
 
-// ── MANAGE ──
+// ═══════════════════════════════════════════
+// MANAGE
+// ═══════════════════════════════════════════
 function renderManage(){
-  const el=document.getElementById('manageList');
-  if(!agents.length){el.innerHTML='<div style="color:var(--muted);font-size:.78rem">No agents</div>';return;}
+  const el=document.getElementById('manageGrid');
+  if(!agents.length){el.innerHTML='<div style="font-size:.72rem;color:var(--comment);padding:.5rem 0">// no agents found<br>// run new_agent.sh to create one</div>';return;}
   el.innerHTML=agents.map(a=>{
-    const[fg,bg]=clr(a.id);
-    return `<div class="amc">
-      <div class="av" style="background:${bg};color:${fg};width:28px;height:28px;border-radius:5px;font-size:.78rem">${init(a.name)}</div>
-      <div class="amc-info">
-        <div class="amc-name">${a.name} <span style="color:var(--muted);font-weight:400;font-size:.65rem">${a.id}</span></div>
-        <div class="amc-sub">${a.model} · ${a.inConfig&&a.workspaceOk?'<span style="color:var(--green)">cfg✓</span>':'<span style="color:var(--red)">cfg✗</span>'} · ${a.hasSoul?'<span style="color:var(--green)">soul✓</span>':'<span style="color:var(--red)">soul✗</span>'}</div>
+    const col=agentColor(a.id);const ok=a.inConfig&&a.workspaceOk;
+    return `<div class="manage-card" style="border-top-color:${col}40">
+      <div class="mc-header">
+        <div class="mc-sigil" style="color:${col}">&#x25B6;</div>
+        <div><div class="mc-nm" style="color:${col}">${esc(a.name)}</div><div class="mc-id">${a.id}</div></div>
       </div>
-      <div class="amca">
-        <button class="abtn abtn-y" onclick="openSoul('${a.id}','${a.name}')">Soul</button>
-        <a class="abtn abtn-b" href="http://127.0.0.1:18789/chat?session=agent:${a.id}:main" target="_blank">Chat↗</a>
+      <div class="mc-badges">
+        <span class="mc-bdg ${ok?'mb-ok':'mb-err'}">${ok?'config:ok':'config:err'}</span>
+        <span class="mc-bdg ${a.hasSoul?'mb-ok':'mb-err'}">${a.hasSoul?'soul:ok':'soul:missing'}</span>
+        <span class="mc-bdg mb-info">${(a.model||'').split('/').pop()}</span>
+      </div>
+      <div class="mc-actions">
+        <button class="mc-btn mc-btn-primary" onclick="selectAgent('${a.id}');showPanel('task')">▶ assign_task</button>
+        <button class="mc-btn mc-btn-ghost" onclick="openSoulModal('${a.id}','${esc(a.name)}')">✏ soul.md</button>
+        <a class="mc-btn mc-btn-ghost" href="http://127.0.0.1:18789/chat?session=agent:${a.id}:main" target="_blank">↗ openclaw</a>
       </div>
     </div>`;
   }).join('');
 }
 
 async function fixAll(){
-  const st=document.getElementById('fixSt');
-  showFS(st,'Fixing…','fwarn');
-  try{const d=await fetch('/api/fix-all',{method:'POST'}).then(r=>r.json());showFS(st,`✅ ${d.message}\n${d.cli}`,'fok');await loadAgents();}
-  catch{showFS(st,'❌ Error','ferr');}
+  const fb=document.getElementById('manageFb');
+  showFb(fb,'// running fix_all_configs.sh...','fb-warn');
+  try{const d=await fetch('/api/fix-all',{method:'POST'}).then(r=>r.json());showFb(fb,`// exit 0: ${d.message}\n${d.cli}`,'fb-ok');await loadAgents();}
+  catch{showFb(fb,'// error: fix failed','fb-err');}
 }
 
-function openSoul(id,name){
-  soulId=id;document.getElementById('soulBoxName').textContent=name;
-  document.getElementById('soulTxt').value='';document.getElementById('soulSt').style.display='none';
-  document.getElementById('soulBox').style.display='block';
-  document.getElementById('soulTxt').focus();
-  document.getElementById('soulBox').scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-function closeSoul(){document.getElementById('soulBox').style.display='none';soulId=null;}
+// ═══════════════════════════════════════════
+// SOUL MODAL
+// ═══════════════════════════════════════════
+function openSoulModal(id,name){soulId=id;document.getElementById('soulMName').textContent=name;document.getElementById('soulMText').value='';document.getElementById('soulFb').style.display='none';document.getElementById('soulModal').classList.add('open');}
+function closeSoulModal(){document.getElementById('soulModal').classList.remove('open');soulId=null;}
 async function submitSoul(){
-  const soul=document.getElementById('soulTxt').value.trim();
-  const wg=document.getElementById('globalSoul').checked;
-  const st=document.getElementById('soulSt');
-  if(!soul)return showFS(st,'Paste content first.','ferr');
+  const soul=document.getElementById('soulMText').value.trim();
+  const wg=document.getElementById('soulGlobal').checked;
+  const fb=document.getElementById('soulFb');
+  if(!soul)return showFb(fb,'// error: soul content is empty','fb-err');
   try{
     const res=await fetch(`/api/agents/${encodeURIComponent(soulId)}/soul`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul,writeGlobal:wg})});
     const d=await res.json();
-    showFS(st,res.ok?`✅ ${d.message}`:`❌ ${d.error}`,res.ok?'fok':'ferr');
-    if(res.ok)setTimeout(closeSoul,1500);
-  }catch{showFS(st,'❌ Network error','ferr');}
+    showFb(fb,res.ok?`// exit 0: ${d.message}`:`// error: ${d.error}`,res.ok?'fb-ok':'fb-err');
+    if(res.ok)setTimeout(closeSoulModal,1500);
+  }catch{showFb(fb,'// fatal: network error','fb-err');}
 }
 
-function showFS(el,msg,cls){el.textContent=msg;el.className=`fst ${cls}`;el.style.display='block';}
-
-// ── NETWORK MODAL ──
+// ═══════════════════════════════════════════
+// NETWORK MODAL
+// ═══════════════════════════════════════════
 async function openNetModal(){
   document.getElementById('netModal').classList.add('open');
-  const nc=document.getElementById('netContent');
-  nc.innerHTML='<div style="color:var(--muted);font-size:.78rem">Loading…</div>';
+  const el=document.getElementById('netContent');
+  el.innerHTML='<div style="color:var(--comment);font-size:.7rem">$ ifconfig | grep inet...</div>';
   try{
     const d=await fetch('/api/network').then(r=>r.json());
-    nc.innerHTML=`
-      <div class="net-card">
-        <h3>Access URLs</h3>
-        ${d.urls.length?d.urls.map(url=>`
-          <div class="url-row">
-            <span class="url-text">${url}</span>
-            <button class="copy-btn" onclick="copyUrl('${url}')">Copy</button>
-          </div>
-        `).join(''):'<div style="color:var(--muted);font-size:.75rem">No network interfaces found. Make sure you\'re connected to Wi-Fi.</div>'}
-        <div class="url-row">
-          <span class="url-text">http://localhost:${d.port} (this device)</span>
-          <button class="copy-btn" onclick="copyUrl('http://localhost:${d.port}')">Copy</button>
-        </div>
+    el.innerHTML=`<div style="font-size:.65rem;color:var(--comment);margin-bottom:.6rem">// local network interfaces</div>
+      ${d.urls.map(url=>`<div class="net-url-box">
+        <span class="net-url">${url}</span>
+        <button class="net-copy" onclick="copyText('${url}',this)">copy</button>
+        <a href="${url}" target="_blank" class="net-open">open↗</a>
+      </div>`).join('')}
+      <div class="net-url-box">
+        <span class="net-url">http://localhost:${d.port} [this device]</span>
+        <button class="net-copy" onclick="copyText('http://localhost:${d.port}',this)">copy</button>
       </div>
-      <div class="net-tip">
-        <strong>📱 Open on your phone or another computer:</strong><br>
-        Make sure both devices are on the <strong>same Wi-Fi network</strong>, then open the URL above in any browser.<br><br>
-        <strong>Hostname:</strong> ${d.hostname}
+      <div style="margin-top:.75rem">
+        <div style="font-size:.65rem;color:var(--comment);margin-bottom:.4rem">// how to connect from another device</div>
+        <ol class="net-steps">
+          <li>connect phone/laptop to same wifi network</li>
+          <li>copy url above</li>
+          <li>open in any browser — full terminal ui works on mobile</li>
+        </ol>
       </div>
-      <div class="net-tip" style="margin-top:.5rem;background:rgba(227,179,65,.05);border-color:rgba(227,179,65,.2)">
-        <strong>🔒 Security note:</strong> This portal is accessible to anyone on your local network. Do not use on public Wi-Fi.
-      </div>`;
-  }catch{nc.innerHTML='<div style="color:var(--red);font-size:.78rem">Failed to load network info</div>';}
+      <div class="net-warning">⚠ security: accessible to all devices on local network. use on trusted wifi only.</div>`;
+  }catch{el.innerHTML='<div style="color:var(--red);font-size:.7rem">// error: failed to get network info</div>';}
 }
 function closeNetModal(){document.getElementById('netModal').classList.remove('open');}
+
+function copyText(text,btn){
+  navigator.clipboard.writeText(text).then(()=>{const o=btn.textContent;btn.textContent='copied!';btn.style.color='var(--green)';setTimeout(()=>{btn.textContent=o;btn.style.color='';},2000);});
+}
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function showFb(el,msg,cls){el.textContent=msg;el.className=`feedback ${cls}`;el.style.display='block';}
+
+// Close modals
+document.getElementById('soulModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeSoulModal();});
 document.getElementById('netModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeNetModal();});
 
-function copyUrl(url){
-  navigator.clipboard.writeText(url).then(()=>{
-    const btn=event.target; btn.textContent='Copied!';
-    setTimeout(()=>btn.textContent='Copy',2000);
-  });
-}
+// Real-time SSE
+function connectSSE(){const es=new EventSource('/api/events');es.onmessage=e=>{try{const d=JSON.parse(e.data);if(d.type==='task_saved'){reloadTasks().then(renderDash);}}catch{}};es.onerror=()=>setTimeout(connectSSE,5000);}
 
-// ── REAL-TIME EVENTS (cross-device task updates) ──
-function connectSSE(){
-  const es=new EventSource('/api/events');
-  es.onmessage=e=>{
-    try{
-      const d=JSON.parse(e.data);
-      if(d.type==='task_saved'&&document.getElementById('panel-history').classList.contains('active')){
-        loadHistory(); // auto-refresh history on all connected devices
-      }
-    }catch{}
-  };
-  es.onerror=()=>setTimeout(connectSSE,5000); // auto-reconnect
-}
+// Model card interactivity
+document.querySelectorAll('.model-opt').forEach(c=>c.addEventListener('change',updatePreview));
 
-// ── INIT ──
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
 (async()=>{
   await checkGateway();
   await loadAgents();
+  await reloadTasks();
+  renderDash();
   connectSSE();
   setInterval(checkGateway,30000);
 })();
