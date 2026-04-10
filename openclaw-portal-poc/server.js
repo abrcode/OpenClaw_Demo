@@ -224,52 +224,75 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
         }
 
         // ── 4. AGENT STREAMING EVENTS ──
+        // Payload shape: { runId, stream, data, sessionKey, seq, ts }
+        // stream = "delta"|"done"|"error"|"tool"|"thinking"|"start"
+        // data   = string chunk OR object
         if (type === 'event' && event === 'agent') {
-            const p = payload || {};
-            onLog(`[WS] agent event: keys=[${Object.keys(p).join(',')}] done=${p.done} status=${p.status}`);
+            const p      = payload || {};
+            const stream = p.stream;
+            const data   = p.data;
+            onLog(`[WS] agent stream="${stream}" data=${JSON.stringify(data).slice(0,80)}`);
 
-            if (typeof p.delta === 'string' && p.delta) {
-                fullText += p.delta;
-                onChunk(p.delta);
+            if (stream === 'delta' || stream === 'text' || stream === 'assistant') {
+                // data shape: { text: "<cumulative>", delta: "<increment>" }
+                // MUST use delta (not text) — text is the growing cumulative string
+                const chunk = typeof data === 'string' ? data
+                    : (data?.delta ?? data?.content ?? '');
+                if (chunk) { fullText += chunk; onChunk(chunk); }
                 return;
             }
-
-            if (typeof p.text === 'string' && p.text && !p.done) {
-                fullText += p.text;
-                onChunk(p.text);
-                return;
+            // lifecycle phase:"end" = run finished
+            if (stream === 'lifecycle') {
+                if (data?.phase === 'end' || data?.phase === 'done') {
+                    onLog(`[WS] lifecycle phase=${data.phase} → done`);
+                    finish(null);
+                }
+                return; // ignore start and other phases
             }
-
-            if (p.done === true || p.status === 'done' || p.status === 'completed' || p.final === true) {
-                onLog('[WS] Agent event signals done');
+            if (stream === 'done' || stream === 'end' || stream === 'complete') {
+                if (!fullText) {
+                    const t = typeof data === 'string' ? data
+                        : (data?.text || data?.content || data?.message || '');
+                    if (t) { fullText = t; onChunk(t); }
+                }
                 finish(null);
                 return;
             }
-
-            if (p.status === 'error' || p.error) {
-                finish(`Agent error: ${JSON.stringify(p.error || p.status)}`);
+            if (stream === 'error') {
+                finish(`Agent error: ${typeof data === 'string' ? data : JSON.stringify(data)}`);
                 return;
             }
+            // Non-content streams — skip
+            if (stream === 'start' || stream === 'tool' || stream === 'thinking') return;
+
+            // Unknown stream type — try to extract text
+            if (data !== undefined && data !== null) {
+                const chunk = typeof data === 'string' ? data
+                    : (data?.text || data?.delta || data?.content || data?.message || '');
+                if (chunk) { fullText += chunk; onChunk(chunk); return; }
+            }
+            // Legacy fallback
+            const lc = p.delta || p.text || p.content || '';
+            if (lc) { fullText += lc; onChunk(lc); }
             return;
         }
 
         // ── 5. FINAL RES FOR AGENT RUN ──
-        if (type === 'res' && (runId ? payload?.runId === runId : false)) {
-            onLog(`[WS] Agent run final res. status=${payload?.status}`);
-            if (!fullText && payload?.summary) fullText = payload.summary;
+        if (type === 'res' && payload && payload.runId && payload.runId === runId) {
+            onLog(`[WS] Agent run final res. status=${payload.status}`);
+            if (!fullText) {
+                const t = payload.summary || payload.text || payload.content || '';
+                if (t) { fullText = t; onChunk(t); }
+            }
             finish(null);
             return;
         }
 
-        // ── 6. CATCH chat events (some versions use this instead of agent events) ──
+        // ── 6. chat events — these carry full message history JSON, ignore for content ──
         if (type === 'event' && (event === 'chat' || event === 'message')) {
-            const text = payload?.text || payload?.content || payload?.message || '';
-            if (text && !fullText.includes(text)) {
-                onLog(`[WS] chat/message event with text (${text.length} chars)`);
-                fullText += text;
-                onChunk(text);
-            }
-            if (payload?.done || payload?.final) finish(null);
+            // chat events contain full conversation history objects, not plain text
+            // We get the actual text from agent stream="assistant" events above
+            onLog(`[WS] chat event (session history update — ignored for content)`);
             return;
         }
 

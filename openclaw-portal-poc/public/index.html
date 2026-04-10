@@ -165,7 +165,7 @@ a.dbg{font-size:.68rem;color:var(--muted);border:1px solid var(--border);padding
 
   <!-- TOPBAR -->
   <header class="topbar">
-    <div class="brand">🦀 OpenClaw</div>
+    <div class="brand">🦀 Nexus.AI</div>
     <div class="tab-bar">
       <button class="tab active" onclick="showPanel('task')">Tasks</button>
       <button class="tab" onclick="showPanel('history')">History</button>
@@ -495,8 +495,9 @@ async function sendTask() {
 
         // Text chunk
         if (parsed.chunk !== undefined) {
-          fullResponse += parsed.chunk;
-          charCount    += parsed.chunk.length;
+          const chunkStr = typeof parsed.chunk === 'string' ? parsed.chunk : JSON.stringify(parsed.chunk);
+          fullResponse += chunkStr;
+          charCount    += chunkStr.length;
           respText.innerHTML = escape(fullResponse) + '<span class="cursor"></span>';
           document.getElementById('respBox').scrollTop = 999999;
           document.getElementById('charCount').textContent = `${charCount} chars`;
