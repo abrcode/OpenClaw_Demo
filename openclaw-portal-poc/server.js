@@ -5,16 +5,33 @@ const path       = require('path');
 const os         = require('os');
 const { exec }   = require('child_process');
 const WebSocket  = require('ws');
+const http       = require('http');
+const crypto     = require('crypto');
 
-const app  = express();
-const PORT = 3000;
-app.use(bodyParser.json({ limit: '2mb' }));
-app.use(express.static('public'));
+const app    = express();
+const server = http.createServer(app); // Use http server so we can attach WS for real-time push
 
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+// Bind to 0.0.0.0 so any device on your network can access the portal
+const PORT          = 3000;
+const BIND          = '0.0.0.0';
 const OPENCLAW_PATH = path.join(os.homedir(), '.openclaw');
 const AGENTS_ROOT   = path.join(OPENCLAW_PATH, 'agents');
 const CONFIG_PATH   = path.join(OPENCLAW_PATH, 'openclaw.json');
 const OC_WS_URL     = 'ws://127.0.0.1:18789';
+const TASKS_FILE    = path.join(OPENCLAW_PATH, 'portal-tasks.json');
+
+app.use(bodyParser.json({ limit: '2mb' }));
+app.use(express.static('public'));
+
+// ─── CORS — allow access from any device on network ──────────────────────────
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function isDir(p) { try { return fs.statSync(p).isDirectory(); } catch { return false; } }
@@ -52,6 +69,19 @@ function runCmd(cmd) {
         r({ ok: !e, stdout: o?.trim(), stderr: s?.trim(), error: e?.message })));
 }
 
+function getLocalIPs() {
+    const nets = os.networkInterfaces();
+    const ips  = [];
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                ips.push({ name, address: net.address });
+            }
+        }
+    }
+    return ips;
+}
+
 function buildAgentEntry(id, name, model, workspaceDir) {
     return {
         id,
@@ -85,24 +115,62 @@ function repairConfigAgents(cfg) {
     return cfg;
 }
 
-// ─── OPENCLAW WS CLIENT ───────────────────────────────────────────────────────
-//
-// KEY INSIGHT from source code analysis:
-// The gateway checks `isControlUi` flag based on client.id === "openclaw-control-ui"
-// AND client.mode === "webchat". Only when isControlUi=true does allowInsecureAuth
-// bypass the device signature requirement.
-//
-// So we must impersonate the Control UI to skip device auth on localhost.
-//
-// Full protocol flow (v3):
-//  Server → connect.challenge event
-//  Client → req: connect  (as openclaw-control-ui / webchat mode)
-//  Server → res: connect  payload.type = "hello-ok"
-//  Client → req: chat.send  { session, text, idempotencyKey }
-//  Server → res: chat.send  { runId, status:"accepted" }
-//  Server → event: agent   { delta } streaming chunks
-//  Server → res: agent (or event agent with done:true) final
+// ─── TASK HISTORY ─────────────────────────────────────────────────────────────
+function readTasks() {
+    if (!fs.existsSync(TASKS_FILE)) return [];
+    try { return JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8')); } catch { return []; }
+}
+function saveTask(task) {
+    const tasks = readTasks();
+    tasks.unshift(task);
+    fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks.slice(0, 500), null, 2), 'utf8');
+    // Push to all connected SSE clients (for cross-device real-time updates)
+    broadcastSSE({ type: 'task_saved', task });
+}
 
+// ─── REAL-TIME SSE BROADCAST (for multi-device) ───────────────────────────────
+// All connected browsers (from any device) get live updates
+const sseClients = new Set();
+
+function broadcastSSE(data) {
+    const msg = `data: ${JSON.stringify(data)}\n\n`;
+    for (const client of sseClients) {
+        try { client.write(msg); } catch { sseClients.delete(client); }
+    }
+}
+
+// SSE endpoint for real-time cross-device task updates
+app.get('/api/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    res.write('data: {"type":"connected"}\n\n');
+    sseClients.add(res);
+    req.on('close', () => sseClients.delete(res));
+});
+
+// ─── AGENT DETECTION — check task text for @mentions ─────────────────────────
+// If a task contains @AgentName, it gets delegated to that agent automatically
+// e.g. "ask @QAEngineer to write test cases for this"
+function detectDelegation(task, allAgents) {
+    const delegations = [];
+    // Match @agentname or @AgentName patterns
+    const pattern = /@([a-zA-Z][a-zA-Z0-9_-]*)/g;
+    let match;
+    while ((match = pattern.exec(task)) !== null) {
+        const mentioned = match[1].toLowerCase();
+        const agent = allAgents.find(a =>
+            a.id.toLowerCase() === mentioned ||
+            a.name.toLowerCase() === mentioned ||
+            a.name.toLowerCase().replace(/\s+/g, '') === mentioned
+        );
+        if (agent) delegations.push({ agent, mention: match[0] });
+    }
+    return delegations;
+}
+
+// ─── OPENCLAW WS CLIENT ───────────────────────────────────────────────────────
 function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
     const token      = getGatewayToken();
     const sessionKey = `agent:${agentId}:main`;
@@ -111,257 +179,192 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
     let   finished   = false;
     let   runId      = null;
 
-    onLog(`[WS] Connecting → ${OC_WS_URL}`);
-    onLog(`[WS] Token    → ${token ? token.substring(0,8)+'...' : 'MISSING!'}`);
-    onLog(`[WS] Session  → ${sessionKey}`);
-    onLog(`[WS] ReqId    → ${reqId}`);
+    onLog(`[WS] Agent=${agentId} session=${sessionKey}`);
 
-    if (!token) {
-        onError('No gateway token found in openclaw.json');
-        return;
-    }
+    if (!token) { onError('No gateway token found in openclaw.json'); return; }
 
-    const ws = new WebSocket(OC_WS_URL, { headers: { Origin: "http://127.0.0.1:18789" } });
+    const ws = new WebSocket(OC_WS_URL, { headers: { Origin: 'http://127.0.0.1:18789' } });
 
     const finish = (err) => {
         if (finished) return;
         finished = true;
         clearTimeout(globalTimeout);
         try { ws.close(); } catch {}
-        if (err) {
-            onLog(`[WS] ✗ FINISHED WITH ERROR: ${err}`);
-            onError(err);
-        } else {
-            onLog(`[WS] ✓ FINISHED OK. Response length: ${fullText.length} chars`);
-            onDone(fullText);
-        }
+        if (err) { onLog(`[WS] ERROR: ${err}`); onError(err); }
+        else      { onLog(`[WS] Done (${fullText.length} chars)`); onDone(fullText); }
     };
 
-    const globalTimeout = setTimeout(() => {
-        onLog('[WS] TIMEOUT after 120s');
-        finish('Timeout: no response after 120 seconds');
-    }, 120000);
+    const globalTimeout = setTimeout(() => finish('Timeout: no response after 120s'), 120000);
 
-    ws.on('open', () => {
-        onLog('[WS] Socket opened — awaiting challenge…');
-    });
+    ws.on('open', () => onLog('[WS] Opened'));
 
     ws.on('message', (raw) => {
         let frame;
-        try { frame = JSON.parse(raw.toString()); }
-        catch (e) { onLog(`[WS] Bad JSON frame: ${raw.toString().slice(0,80)}`); return; }
+        try { frame = JSON.parse(raw.toString()); } catch { return; }
 
-        const { type, event, method, id: frameId, ok, payload, error } = frame;
-        onLog(`[WS] ← type=${type} event=${event||''} method=${method||''} id=${frameId||''} ok=${ok}`);
+        const { type, event, id: frameId, ok, payload, error } = frame;
 
-        // ── 1. CHALLENGE → send connect as Control UI ──
         if (type === 'event' && event === 'connect.challenge') {
-            onLog('[WS] Got challenge → sending connect frame as openclaw-control-ui');
-
-            // CRITICAL: client.id must be "openclaw-control-ui" and client.mode must be
-            // "webchat" so the gateway sets isControlUi=true and skips device auth
-            // when allowInsecureAuth:true is set in config (which you already have)
             ws.send(JSON.stringify({
-                type:   'req',
-                id:     `${reqId}-connect`,
-                method: 'connect',
+                type: 'req', id: `${reqId}-connect`, method: 'connect',
                 params: {
-                    minProtocol: 3,
-                    maxProtocol: 3,
-                    role:        'operator',
-                    scopes:      ['operator.read', 'operator.write'],
-                    caps:        [],
-                    commands:    [],
-                    permissions: {},
-                    auth:        { token },
-                    locale:      'en-US',
-                    userAgent:   'openclaw-control-ui/2026.4.5',
-                    // These two fields trigger isControlUi=true in gateway source:
-                    client: {
-                        id:       'openclaw-control-ui',
-                        version:  '2026.4.5',
-                        platform: 'web',
-                        mode:     'webchat',
-                    },
-                    // No device field → skipped when allowInsecureAuth:true + isControlUi:true
+                    minProtocol: 3, maxProtocol: 3, role: 'operator',
+                    scopes: ['operator.read', 'operator.write'],
+                    caps: [], commands: [], permissions: {},
+                    auth: { token }, locale: 'en-US',
+                    userAgent: 'openclaw-control-ui/2026.4.5',
+                    client: { id: 'openclaw-control-ui', version: '2026.4.5', platform: 'web', mode: 'webchat' },
                 },
             }));
             return;
         }
 
-        // ── 2. CONNECT RESPONSE ──
         if (type === 'res' && frameId === `${reqId}-connect`) {
-            if (!ok) {
-                const errMsg = typeof error === 'object' ? JSON.stringify(error) : String(error || payload);
-                finish(`Connect rejected: ${errMsg}`);
-                return;
-            }
-            onLog(`[WS] ✓ Connected! Protocol: ${payload?.protocol}. Sending chat.send…`);
-
+            if (!ok) { finish(`Connect rejected: ${JSON.stringify(error || payload)}`); return; }
+            onLog('[WS] Connected → sending message');
             ws.send(JSON.stringify({
-                type:   'req',
-                id:     `${reqId}-msg`,
-                method: 'chat.send',
-                params: {
-                    sessionKey:     sessionKey,
-                    message:        message,
-                    idempotencyKey: reqId,
-                },
+                type: 'req', id: `${reqId}-msg`, method: 'chat.send',
+                params: { sessionKey, message, idempotencyKey: reqId },
             }));
             return;
         }
 
-        // ── 3. CHAT.SEND ACK ──
         if (type === 'res' && frameId === `${reqId}-msg`) {
-            if (!ok) {
-                const errMsg = typeof error === 'object' ? JSON.stringify(error) : String(error || payload);
-                finish(`chat.send rejected: ${errMsg}`);
-                return;
-            }
+            if (!ok) { finish(`chat.send rejected: ${JSON.stringify(error || payload)}`); return; }
             runId = payload?.runId || payload?.id || null;
-            onLog(`[WS] ✓ Message accepted. runId=${runId}. Waiting for agent…`);
+            onLog(`[WS] Accepted runId=${runId}`);
             return;
         }
 
-        // ── 4. AGENT STREAMING EVENTS ──
-        // Payload shape: { runId, stream, data, sessionKey, seq, ts }
-        // stream = "delta"|"done"|"error"|"tool"|"thinking"|"start"
-        // data   = string chunk OR object
         if (type === 'event' && event === 'agent') {
-            const p      = payload || {};
-            const stream = p.stream;
-            const data   = p.data;
-            onLog(`[WS] agent stream="${stream}" data=${JSON.stringify(data).slice(0,80)}`);
+            const p = payload || {};
+            const { stream, data } = p;
 
-            if (stream === 'delta' || stream === 'text' || stream === 'assistant') {
-                // data shape: { text: "<cumulative>", delta: "<increment>" }
-                // MUST use delta (not text) — text is the growing cumulative string
-                const chunk = typeof data === 'string' ? data
-                    : (data?.delta ?? data?.content ?? '');
+            if (stream === 'assistant' || stream === 'delta' || stream === 'text') {
+                const chunk = typeof data === 'string' ? data : (data?.delta ?? data?.content ?? '');
                 if (chunk) { fullText += chunk; onChunk(chunk); }
                 return;
             }
-            // lifecycle phase:"end" = run finished
             if (stream === 'lifecycle') {
                 if (data?.phase === 'end' || data?.phase === 'done') {
-                    onLog(`[WS] lifecycle phase=${data.phase} → done`);
-                    finish(null);
+                    onLog(`[WS] lifecycle.end → done`); finish(null);
                 }
-                return; // ignore start and other phases
-            }
-            if (stream === 'done' || stream === 'end' || stream === 'complete') {
-                if (!fullText) {
-                    const t = typeof data === 'string' ? data
-                        : (data?.text || data?.content || data?.message || '');
-                    if (t) { fullText = t; onChunk(t); }
-                }
-                finish(null);
                 return;
             }
-            if (stream === 'error') {
-                finish(`Agent error: ${typeof data === 'string' ? data : JSON.stringify(data)}`);
-                return;
-            }
-            // Non-content streams — skip
-            if (stream === 'start' || stream === 'tool' || stream === 'thinking') return;
-
-            // Unknown stream type — try to extract text
-            if (data !== undefined && data !== null) {
-                const chunk = typeof data === 'string' ? data
-                    : (data?.text || data?.delta || data?.content || data?.message || '');
-                if (chunk) { fullText += chunk; onChunk(chunk); return; }
-            }
-            // Legacy fallback
-            const lc = p.delta || p.text || p.content || '';
-            if (lc) { fullText += lc; onChunk(lc); }
+            if (stream === 'done' || stream === 'end' || stream === 'complete') { finish(null); return; }
+            if (stream === 'error') { finish(`Agent error: ${JSON.stringify(data)}`); return; }
             return;
         }
 
-        // ── 5. FINAL RES FOR AGENT RUN ──
-        if (type === 'res' && payload && payload.runId && payload.runId === runId) {
-            onLog(`[WS] Agent run final res. status=${payload.status}`);
-            if (!fullText) {
-                const t = payload.summary || payload.text || payload.content || '';
-                if (t) { fullText = t; onChunk(t); }
-            }
-            finish(null);
-            return;
-        }
-
-        // ── 6. chat events — these carry full message history JSON, ignore for content ──
-        if (type === 'event' && (event === 'chat' || event === 'message')) {
-            // chat events contain full conversation history objects, not plain text
-            // We get the actual text from agent stream="assistant" events above
-            onLog(`[WS] chat event (session history update — ignored for content)`);
-            return;
-        }
-
-        // Log any other events for debugging
-        if (type === 'event') {
-            onLog(`[WS] Unhandled event: ${event} payload=${JSON.stringify(payload||{}).slice(0,100)}`);
-        }
+        if (type === 'res' && payload?.runId && payload.runId === runId) { finish(null); return; }
+        if (type === 'event' && (event === 'chat' || event === 'message')) return; // ignore history blobs
     });
 
-    ws.on('error', (err) => {
-        onLog(`[WS] Socket error: ${err.message}`);
-        finish(`WebSocket error: ${err.message}`);
-    });
-
-    ws.on('close', (code, reason) => {
-        const r = reason?.toString() || '';
-        onLog(`[WS] Socket closed. code=${code} reason=${r}`);
-        if (!finished) {
-            // If we have text already, treat close as done
-            if (fullText) {
-                onLog('[WS] Socket closed with partial/full response — treating as done');
-                finish(null);
-            } else {
-                finish(`Connection closed (code=${code}${r ? ': '+r : ''})`);
-            }
-        }
+    ws.on('error', (err) => finish(`WS error: ${err.message}`));
+    ws.on('close', (code) => {
+        if (!finished) finish(fullText ? null : `Connection closed (code=${code})`);
     });
 }
 
-// ─── TASK SSE ENDPOINT ────────────────────────────────────────────────────────
-app.post('/api/task', (req, res) => {
-    const { agentId, task } = req.body;
+// ─── TASK ENDPOINT ────────────────────────────────────────────────────────────
+app.post('/api/task', async (req, res) => {
+    const { agentId, task, fromAgent } = req.body;
     if (!agentId || !task) return res.status(400).json({ error: 'agentId and task required' });
+
+    // Check for @mentions → auto-delegate sub-tasks
+    const cfg        = readConfig();
+    const allAgents  = getAgentDirs().map(name => {
+        const cfgEntry = cfg?.agents?.list?.find(a => a.id === name);
+        return { id: name, name: cfgEntry?.name || name };
+    });
+    const delegations = detectDelegation(task, allAgents);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    const sseWrite = (obj) => {
-        if (!res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`);
-    };
-    const sseEnd = () => {
-        if (!res.writableEnded) { res.write('data: [DONE]\n\n'); res.end(); }
-    };
+    const sseWrite = (obj) => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    const sseEnd   = ()    => { if (!res.writableEnded) { res.write('data: [DONE]\n\n'); res.end(); } };
 
     console.log(`\n${'─'.repeat(60)}`);
-    console.log(`[TASK] Agent: ${agentId}`);
+    console.log(`[TASK] Agent: ${agentId}${fromAgent ? ` (delegated from ${fromAgent})` : ''}`);
     console.log(`[TASK] Task : ${task.substring(0, 100)}`);
-    console.log(`${'─'.repeat(60)}`);
+    if (delegations.length) console.log(`[TASK] Delegations detected: ${delegations.map(d=>d.agent.name).join(', ')}`);
 
+    // Notify about delegations before starting
+    if (delegations.length > 0) {
+        sseWrite({
+            type: 'delegation_detected',
+            agents: delegations.map(d => ({ id: d.agent.id, name: d.agent.name, mention: d.mention }))
+        });
+    }
+
+    // Run primary agent
     sendToAgent(
-        agentId,
-        task,
+        agentId, task,
         (msg) => { console.log(msg); sseWrite({ log: msg }); },
         (chunk) => sseWrite({ chunk }),
-        (fullText) => {
-            console.log(`[TASK] ✓ Complete. First 100 chars: ${fullText.substring(0,100)}`);
+        async (fullText) => {
+            console.log(`[TASK] ✓ Primary agent done (${fullText.length} chars)`);
             sseWrite({ done: true, fullText });
+
+            // Save primary task
+            const taskRecord = {
+                id:        `${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
+                agentId,   agentName: allAgents.find(a=>a.id===agentId)?.name || agentId,
+                task,      response: fullText, status: 'done',
+                fromAgent: fromAgent || null,
+                delegatedTo: delegations.map(d => d.agent.id),
+                createdAt: new Date().toISOString(),
+            };
+            saveTask(taskRecord);
+
+            // Auto-delegate to @mentioned agents
+            for (const { agent, mention } of delegations) {
+                console.log(`[DELEGATE] → ${agent.name} (${agent.id})`);
+                sseWrite({ type: 'delegation_start', agentId: agent.id, agentName: agent.name });
+
+                // Build sub-task: strip the @mention and send context + original task
+                const subTask = `[Delegated from ${allAgents.find(a=>a.id===agentId)?.name||agentId}]\n\n${task.replace(mention, '').trim()}`;
+
+                await new Promise(resolve => {
+                    let subResponse = '';
+                    sendToAgent(
+                        agent.id, subTask,
+                        (msg) => { console.log(`  [${agent.id}] ${msg}`); sseWrite({ log: `[${agent.name}] ${msg}` }); },
+                        (chunk) => { subResponse += chunk; sseWrite({ delegationChunk: chunk, agentId: agent.id, agentName: agent.name }); },
+                        (subText) => {
+                            console.log(`[DELEGATE] ✓ ${agent.name} done`);
+                            sseWrite({ delegationDone: true, agentId: agent.id, agentName: agent.name, response: subText });
+                            saveTask({
+                                id:        `${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
+                                agentId:   agent.id, agentName: agent.name,
+                                task:      subTask, response: subText, status: 'done',
+                                fromAgent: agentId,
+                                createdAt: new Date().toISOString(),
+                            });
+                            resolve();
+                        },
+                        (err) => {
+                            console.error(`[DELEGATE] ✗ ${agent.name}: ${err}`);
+                            sseWrite({ delegationError: err, agentId: agent.id, agentName: agent.name });
+                            resolve();
+                        }
+                    );
+                });
+            }
+
             sseEnd();
         },
         (err) => {
-            console.error(`[TASK] ✗ Error: ${err}`);
+            console.error(`[TASK] ✗ ${err}`);
             sseWrite({ error: String(err) });
             sseEnd();
         }
     );
 
-    req.on('close', () => console.log('[TASK] Browser disconnected'));
+    req.on('close', () => console.log('[TASK] Client disconnected'));
 });
 
 // ─── LIST AGENTS ─────────────────────────────────────────────────────────────
@@ -401,8 +404,6 @@ app.post('/api/agents', async (req, res) => {
     fs.writeFileSync(path.join(wsDir, 'SOUL.md'), soul, 'utf8');
 
     const cli = await runCmd(`openclaw agents add ${id} --model ${model} --workspace "${wsDir}"`);
-    console.log('[CREATE] CLI:', cli);
-
     fs.writeFileSync(path.join(aDir, 'SOUL.md'), soul, 'utf8');
     fs.writeFileSync(path.join(wsDir, 'SOUL.md'), soul, 'utf8');
 
@@ -413,7 +414,6 @@ app.post('/api/agents', async (req, res) => {
     const entry = buildAgentEntry(id, name, model, wsDir);
     if (idx >= 0) cfg.agents.list[idx] = entry; else cfg.agents.list.push(entry);
     writeConfig(cfg);
-
     await runCmd('openclaw gateway restart');
     res.json({ message: `Agent '${id}' created!`, entry, cliResult: cli });
 });
@@ -423,11 +423,9 @@ app.post('/api/agents/:id/soul', (req, res) => {
     const { id }                = req.params;
     const { soul, writeGlobal } = req.body;
     if (!soul) return res.status(400).json({ error: 'soul required' });
-
     const cfg       = readConfig();
     const agentConf = cfg?.agents?.list?.find(a => a.id === id);
     const results   = {};
-
     const write = (p, label) => {
         try {
             if (!fs.existsSync(path.dirname(p))) fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -435,11 +433,9 @@ app.post('/api/agents/:id/soul', (req, res) => {
             results[label] = { path: p, ok: true };
         } catch(e) { results[label] = { path: p, ok: false, error: e.message }; }
     };
-
     write(path.join(AGENTS_ROOT, id, 'SOUL.md'), 'agentDir');
     if (agentConf?.workspace) write(path.join(agentConf.workspace, 'SOUL.md'), 'workspace');
     if (writeGlobal)          write(path.join(OPENCLAW_PATH, 'SOUL.md'), 'global');
-
     res.json({ ok: true, message: `SOUL.md updated for '${id}'`, results });
 });
 
@@ -451,7 +447,30 @@ app.post('/api/fix-all', async (req, res) => {
     await runCmd('openclaw gateway restart');
     await new Promise(r => setTimeout(r, 3000));
     const cli = await runCmd('openclaw agents list 2>&1');
-    res.json({ message: 'All agents fixed. Gateway restarted.', cli: cli.stdout });
+    res.json({ message: 'All agents fixed.', cli: cli.stdout });
+});
+
+// ─── TASK HISTORY ─────────────────────────────────────────────────────────────
+app.get('/api/tasks', (req, res) => res.json(readTasks()));
+app.delete('/api/tasks', (req, res) => {
+    fs.writeFileSync(TASKS_FILE, '[]', 'utf8');
+    res.json({ ok: true });
+});
+app.post('/api/tasks/save', (req, res) => {
+    const record = { id: Date.now().toString(), ...req.body, createdAt: new Date().toISOString() };
+    saveTask(record);
+    res.json({ ok: true, record });
+});
+
+// ─── NETWORK INFO ─────────────────────────────────────────────────────────────
+app.get('/api/network', (req, res) => {
+    const ips = getLocalIPs();
+    res.json({
+        port: PORT,
+        ips,
+        urls: ips.map(ip => `http://${ip.address}:${PORT}`),
+        hostname: os.hostname(),
+    });
 });
 
 // ─── DEBUG ────────────────────────────────────────────────────────────────────
@@ -461,49 +480,32 @@ app.get('/api/debug', async (req, res) => {
     const token = getGatewayToken();
     res.json({
         CONFIG_PATH,
-        gatewayWsUrl:              OC_WS_URL,
-        gatewayToken:              token ? token.substring(0,8)+'...' : 'NOT FOUND',
-        allowInsecureAuth:         cfg?.gateway?.controlUi?.allowInsecureAuth,
-        dangerouslyDisableDevAuth: cfg?.gateway?.controlUi?.dangerouslyDisableDeviceAuth,
-        configAgentsList:          cfg?.agents?.list || [],
-        agentDirsOnDisk:           getAgentDirs(),
-        cliAgentList:              cli.stdout,
+        gatewayWsUrl:     OC_WS_URL,
+        gatewayToken:     token ? token.substring(0,8)+'...' : 'NOT FOUND',
+        allowInsecureAuth: cfg?.gateway?.controlUi?.allowInsecureAuth,
+        networkUrls:      getLocalIPs().map(ip => `http://${ip.address}:${PORT}`),
+        configAgentsList: cfg?.agents?.list || [],
+        agentDirsOnDisk:  getAgentDirs(),
+        cliAgentList:     cli.stdout,
     });
 });
 
-// ─── TASK HISTORY ─────────────────────────────────────────────────────────────
-const TASKS_FILE = path.join(OPENCLAW_PATH, 'portal-tasks.json');
-function readTasks() {
-    if (!fs.existsSync(TASKS_FILE)) return [];
-    try { return JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8')); } catch { return []; }
-}
-function saveTask(task) {
-    const tasks = readTasks();
-    tasks.unshift(task);
-    fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks.slice(0, 200), null, 2), 'utf8');
-}
-app.get('/api/tasks', (req, res) => res.json(readTasks()));
-app.post('/api/tasks/save', (req, res) => {
-    const record = { id: Date.now().toString(), ...req.body, createdAt: new Date().toISOString() };
-    saveTask(record);
-    res.json({ ok: true, record });
-});
-
 // ─── STARTUP ─────────────────────────────────────────────────────────────────
-app.listen(PORT, async () => {
+server.listen(PORT, BIND, async () => {
     const token = getGatewayToken();
-    const cfg   = readConfig().catch?.(() => ({})) || readConfig();
+    const ips   = getLocalIPs();
 
-    console.log(`\n🦀 OpenClaw Portal → http://localhost:${PORT}`);
-    console.log(`   Gateway WS        : ${OC_WS_URL}`);
-    console.log(`   Token             : ${token ? '✓ '+token.substring(0,8)+'...' : '✗ NOT FOUND'}`);
-    console.log(`   allowInsecureAuth : ${cfg?.gateway?.controlUi?.allowInsecureAuth}`);
-    console.log(`   dangerouslyDisDev : ${cfg?.gateway?.controlUi?.dangerouslyDisableDeviceAuth}`);
-    console.log(`\n   Strategy: connect as "openclaw-control-ui"/"webchat" to skip device auth`);
-    console.log(`   (requires allowInsecureAuth:true in openclaw.json, which you already have)\n`);
+    console.log(`\n🦀 OpenClaw Portal`);
+    console.log(`   Local     : http://localhost:${PORT}`);
+    ips.forEach(ip => console.log(`   Network   : http://${ip.address}:${PORT}  ← open on phone/other device`));
+    console.log(`   Gateway   : ${OC_WS_URL}`);
+    console.log(`   Token     : ${token ? '✓ '+token.substring(0,8)+'...' : '✗ NOT FOUND'}`);
+    console.log(`\n   Features:`);
+    console.log(`   ✓ Cross-device access (open network URL on any device)`);
+    console.log(`   ✓ Agent delegation via @mention in tasks`);
+    console.log(`   ✓ Real-time task updates across all connected devices\n`);
 
-    // Test gateway connectivity
     const testWs = new WebSocket(OC_WS_URL);
-    testWs.on('open',  () => { console.log('[STARTUP] ✓ Gateway reachable at', OC_WS_URL); testWs.close(); });
+    testWs.on('open',  () => { console.log('[STARTUP] ✓ OpenClaw gateway reachable'); testWs.close(); });
     testWs.on('error', (e) => console.log(`[STARTUP] ✗ Gateway unreachable: ${e.message}`));
 });

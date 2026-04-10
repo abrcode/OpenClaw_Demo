@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>OpenClaw Command Center</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -13,151 +12,188 @@
   --border:#30363d;--border2:#484f58;
   --accent:#f78166;--accent2:#79c0ff;
   --green:#56d364;--yellow:#e3b341;--purple:#bc8cff;--red:#f85149;
-  --text:#e6edf3;--muted:#8b949e;
-  --r:6px;
-  --font-display:'Syne',sans-serif;
-  --font-mono:'JetBrains Mono',monospace;
+  --text:#e6edf3;--muted:#8b949e;--r:6px;
+  --font-d:'Syne',sans-serif;--font-m:'JetBrains Mono',monospace;
 }
-body{font-family:var(--font-mono);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-.shell{display:grid;grid-template-columns:240px 1fr;grid-template-rows:52px 1fr;height:100vh;overflow:hidden}
+body{font-family:var(--font-m);background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+.shell{display:grid;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;height:100vh}
 
 /* TOPBAR */
-.topbar{grid-column:1/-1;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:.75rem}
-.brand{font-family:var(--font-display);font-weight:800;font-size:1rem;color:var(--accent);letter-spacing:-.02em;display:flex;align-items:center;gap:.4rem}
-.tab-bar{flex:1;display:flex;justify-content:center;gap:.2rem}
-.tab{font-family:var(--font-display);font-size:.75rem;font-weight:600;padding:.3rem .8rem;border-radius:var(--r);border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.topbar{grid-column:1/-1;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:.6rem}
+.brand{font-family:var(--font-d);font-weight:800;font-size:.95rem;color:var(--accent)}
+.tabs{flex:1;display:flex;justify-content:center;gap:.2rem}
+.tab{font-family:var(--font-d);font-size:.72rem;font-weight:600;padding:.28rem .75rem;border-radius:var(--r);border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .12s}
 .tab.active{background:var(--s3);color:var(--text)}
 .tab:hover:not(.active){background:var(--s2);color:var(--text)}
-.gw-status{display:flex;align-items:center;gap:.4rem;font-size:.7rem}
-.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.dot-online{background:var(--green);box-shadow:0 0 5px var(--green)}
-.dot-offline{background:var(--red);box-shadow:0 0 5px var(--red)}
-.dot-checking{background:var(--yellow)}
-a.dbg{font-size:.68rem;color:var(--muted);border:1px solid var(--border);padding:2px 7px;border-radius:4px;text-decoration:none}
+.gws{display:flex;align-items:center;gap:.4rem;font-size:.68rem;color:var(--muted)}
+.dot{width:6px;height:6px;border-radius:50%}
+.dot-on{background:var(--green);box-shadow:0 0 4px var(--green)}
+.dot-off{background:var(--red)}
+.dot-chk{background:var(--yellow)}
+.net-btn{font-size:.65rem;color:var(--accent2);border:1px solid rgba(121,192,255,.3);padding:2px 7px;border-radius:4px;cursor:pointer;background:transparent}
+.net-btn:hover{background:rgba(121,192,255,.08)}
 
 /* SIDEBAR */
-.sidebar{background:var(--s1);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;padding:.6rem .4rem}
-.sb-section{font-size:.62rem;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:.4rem .5rem .25rem}
-.agent-btn{display:flex;align-items:center;gap:.5rem;padding:.45rem .55rem;border-radius:var(--r);cursor:pointer;transition:background .12s;margin-bottom:1px;border:none;background:transparent;width:100%;text-align:left;color:var(--text)}
-.agent-btn:hover{background:var(--s2)}
-.agent-btn.selected{background:var(--s3)}
-.agent-btn.selected .abn{color:var(--accent2)}
-.av{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0;font-family:var(--font-display);font-weight:700}
-.abn{font-size:.78rem;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.abadge{font-size:.52rem;padding:1px 4px;border-radius:3px;flex-shrink:0;border:1px solid}
-.b-ok{background:rgba(86,211,100,.1);color:var(--green);border-color:rgba(86,211,100,.3)}
-.b-err{background:rgba(248,81,73,.1);color:var(--red);border-color:rgba(248,81,73,.3)}
-.sb-add{display:flex;align-items:center;gap:.4rem;padding:.4rem .55rem;border-radius:var(--r);cursor:pointer;color:var(--muted);font-size:.75rem;transition:all .15s;margin-top:auto;border:1px dashed var(--border);background:transparent;width:100%;color:var(--muted)}
-.sb-add:hover{background:var(--s2);color:var(--text);border-color:var(--border2)}
+.sidebar{background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-sec{font-size:.6rem;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:.5rem .55rem .2rem}
+.sb-list{flex:1;overflow-y:auto;padding:0 .35rem}
+.ab{display:flex;align-items:center;gap:.45rem;padding:.42rem .5rem;border-radius:var(--r);cursor:pointer;border:none;background:transparent;width:100%;color:var(--text);margin-bottom:1px}
+.ab:hover{background:var(--s2)}
+.ab.sel{background:var(--s3)}
+.ab.sel .abn{color:var(--accent2)}
+.av{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.65rem;flex-shrink:0;font-family:var(--font-d);font-weight:700}
+.abn{font-size:.76rem;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.abg{font-size:.5rem;padding:1px 4px;border-radius:3px;flex-shrink:0;border:1px solid}
+.bok{background:rgba(86,211,100,.1);color:var(--green);border-color:rgba(86,211,100,.3)}
+.berr{background:rgba(248,81,73,.1);color:var(--red);border-color:rgba(248,81,73,.3)}
+.sb-add{display:flex;align-items:center;gap:.4rem;padding:.4rem .5rem;border-radius:var(--r);cursor:pointer;color:var(--muted);font-size:.72rem;border:1px dashed var(--border);background:transparent;width:calc(100% - .7rem);margin:.4rem .35rem;transition:all .12s}
+.sb-add:hover{background:var(--s2);color:var(--text)}
 
 /* MAIN */
-.main{overflow:hidden;display:flex;flex-direction:column;height:100%}
+.main{overflow:hidden;display:flex;flex-direction:column}
 .panel{display:none;flex-direction:column;height:100%}
 .panel.active{display:flex}
-.panel-scroll{flex:1;overflow-y:auto;padding:1rem}
+.pscroll{flex:1;overflow-y:auto;padding:1rem}
 
-/* TASK PANEL */
-.task-pane{display:flex;flex-direction:column;height:100%;overflow:hidden}
-.task-header{display:flex;align-items:center;gap:.65rem;padding:.85rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
-.task-av{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;font-family:var(--font-display);font-weight:700}
-.task-name{font-family:var(--font-display);font-weight:700;font-size:.95rem}
-.task-model{font-size:.68rem;color:var(--muted);margin-top:1px}
-.oc-link{margin-left:auto;font-size:.68rem;color:var(--accent2);border:1px solid rgba(121,192,255,.3);padding:2px 8px;border-radius:4px;text-decoration:none}
-.oc-link:hover{background:rgba(121,192,255,.08)}
-.task-body{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:.75rem}
-.response-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:.5rem}
+/* TASK UI */
+.task-hdr{display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.t-av{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;font-family:var(--font-d);font-weight:700}
+.t-name{font-family:var(--font-d);font-weight:700;font-size:.9rem}
+.t-model{font-size:.65rem;color:var(--muted);margin-top:1px}
+.oc-link{margin-left:auto;font-size:.65rem;color:var(--accent2);border:1px solid rgba(121,192,255,.25);padding:2px 7px;border-radius:4px;text-decoration:none}
 
-/* Response area */
-.response-box{flex:1;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.85rem;overflow-y:auto;font-size:.8rem;line-height:1.7;position:relative;transition:border-color .2s}
-.response-box.streaming{border-color:var(--accent2)}
-.response-placeholder{color:var(--muted);font-style:italic;font-size:.8rem}
-.response-text{white-space:pre-wrap;word-break:break-word}
+.task-body{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:.65rem}
+.resp-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:.4rem}
+
+.resp-box{flex:1;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.75rem;overflow-y:auto;font-size:.78rem;line-height:1.7;transition:border-color .2s}
+.resp-box.streaming{border-color:var(--accent2)}
+.placeholder{color:var(--muted);font-style:italic;font-size:.78rem}
+.resp-text{white-space:pre-wrap;word-break:break-word}
 .cursor{display:inline-block;width:2px;height:.9em;background:var(--accent2);margin-left:1px;animation:blink .65s steps(1) infinite;vertical-align:text-bottom}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 
-/* Debug log (collapsible) */
-.debug-bar{display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;user-select:none;flex-shrink:0}
-.debug-bar span{font-size:.68rem;color:var(--muted)}
-.debug-bar .toggle{margin-left:auto;font-size:.68rem;color:var(--muted)}
-.debug-log{background:var(--s1);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);padding:.5rem .65rem;overflow-y:auto;max-height:130px;display:none}
-.debug-log.open{display:block}
-.log-line{font-size:.67rem;color:var(--muted);line-height:1.5;white-space:pre-wrap}
-.log-line.err{color:var(--red)}
-.log-line.ok{color:var(--green)}
+/* Delegation panel */
+.deleg-box{background:var(--s2);border:1px solid rgba(188,140,255,.3);border-radius:var(--r);padding:.6rem .75rem;display:none;flex-direction:column;gap:.4rem;max-height:180px;overflow-y:auto}
+.deleg-box.show{display:flex}
+.deleg-hdr{font-size:.65rem;color:var(--purple);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.deleg-item{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.45rem .6rem}
+.deleg-item-hdr{display:flex;align-items:center;gap:.4rem;margin-bottom:.25rem}
+.d-av{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:var(--font-d);font-weight:700;flex-shrink:0}
+.d-name{font-size:.72rem;font-weight:600}
+.d-status{margin-left:auto;font-size:.6rem;padding:1px 5px;border-radius:3px}
+.ds-pending{background:rgba(227,179,65,.1);color:var(--yellow);border:1px solid rgba(227,179,65,.25)}
+.ds-running{background:rgba(121,192,255,.1);color:var(--accent2);border:1px solid rgba(121,192,255,.25);animation:pulse 1s ease-in-out infinite}
+.ds-done{background:rgba(86,211,100,.1);color:var(--green);border:1px solid rgba(86,211,100,.25)}
+.ds-err{background:rgba(248,81,73,.1);color:var(--red);border:1px solid rgba(248,81,73,.25)}
+.d-resp{font-size:.7rem;color:var(--muted);white-space:pre-wrap;max-height:60px;overflow:hidden}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
-/* Status bar */
-.status-bar{display:flex;align-items:center;gap:.6rem;padding:.3rem 0;font-size:.68rem;color:var(--muted);flex-shrink:0}
-.sdot{width:6px;height:6px;border-radius:50%}
-.sd-idle{background:var(--border2)}
-.sd-work{background:var(--yellow);animation:pulse 1s ease-in-out infinite}
-.sd-done{background:var(--green)}
-.sd-err{background:var(--red)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* Debug log */
+.dbg-bar{display:flex;align-items:center;gap:.4rem;padding:.25rem .45rem;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;user-select:none;flex-shrink:0}
+.dbg-bar span{font-size:.65rem;color:var(--muted)}
+.dbg-log{background:var(--s1);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);padding:.4rem .6rem;overflow-y:auto;max-height:110px;display:none}
+.dbg-log.open{display:block}
+.ll{font-size:.64rem;color:var(--muted);line-height:1.5;white-space:pre-wrap}
+.ll.err{color:var(--red)}.ll.ok{color:var(--green)}
+
+/* Status */
+.sbar{display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.65rem;color:var(--muted);flex-shrink:0}
+.sd{width:6px;height:6px;border-radius:50%}
+.sd-idle{background:var(--border2)}.sd-work{background:var(--yellow);animation:pulse 1s infinite}
+.sd-done{background:var(--green)}.sd-err{background:var(--red)}
 
 /* Input */
-.input-row{display:flex;gap:.5rem;flex-shrink:0;margin-top:.5rem}
-.task-input{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-mono);font-size:.8rem;padding:.6rem .8rem;resize:none;min-height:72px;outline:none;transition:border-color .15s;line-height:1.5}
-.task-input:focus{border-color:var(--accent2)}
-.task-input::placeholder{color:var(--muted)}
-.input-btns{display:flex;flex-direction:column;gap:.4rem;flex-shrink:0}
-.btn-send{background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:.6rem 1rem;font-family:var(--font-display);font-weight:700;font-size:.8rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.inp-row{display:flex;gap:.45rem;flex-shrink:0;margin-top:.4rem}
+.task-inp{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-m);font-size:.78rem;padding:.55rem .75rem;resize:none;min-height:68px;outline:none;transition:border-color .15s;line-height:1.5}
+.task-inp:focus{border-color:var(--accent2)}
+.task-inp::placeholder{color:var(--muted)}
+.inp-btns{display:flex;flex-direction:column;gap:.35rem;flex-shrink:0}
+.btn-send{background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:.55rem .9rem;font-family:var(--font-d);font-weight:700;font-size:.78rem;cursor:pointer;transition:all .15s;white-space:nowrap}
 .btn-send:hover{background:#e06a52}
 .btn-send:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
-.btn-sm{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--r);padding:.4rem .7rem;font-family:var(--font-mono);font-size:.7rem;cursor:pointer;transition:all .15s}
-.btn-sm:hover{background:var(--s2);color:var(--text)}
+.bsm{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--r);padding:.35rem .65rem;font-family:var(--font-m);font-size:.67rem;cursor:pointer;transition:all .12s}
+.bsm:hover{background:var(--s2);color:var(--text)}
 
-/* Empty state */
-.empty-task{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:.5rem}
-.empty-task .big{font-size:2rem}
-.empty-task h3{font-family:var(--font-display);color:var(--text);font-size:.95rem}
-.empty-task p{font-size:.78rem}
+/* Hint */
+.hint{font-size:.65rem;color:var(--muted);margin-top:.3rem;padding:.3rem .5rem;background:rgba(188,140,255,.06);border:1px solid rgba(188,140,255,.15);border-radius:4px}
+
+/* Empty */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:.45rem}
+.empty .big{font-size:2rem}
+.empty h3{font-family:var(--font-d);color:var(--text);font-size:.9rem}
+.empty p{font-size:.75rem;text-align:center;max-width:260px;line-height:1.5}
 
 /* HISTORY */
-.history-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.8rem;cursor:pointer;transition:border-color .15s;margin-bottom:.5rem}
-.history-card:hover{border-color:var(--border2)}
-.hc-top{display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem}
-.hc-av{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:var(--font-display);font-weight:700}
-.hc-name{font-size:.75rem;font-weight:600}
-.hc-time{margin-left:auto;font-size:.65rem;color:var(--muted)}
-.hc-task{font-size:.75rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.25rem}
-.hc-resp{font-size:.7rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hcard{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.75rem;cursor:pointer;transition:border-color .15s;margin-bottom:.45rem}
+.hcard:hover{border-color:var(--border2)}
+.hcard.delegated{border-color:rgba(188,140,255,.3)}
+.hc-top{display:flex;align-items:center;gap:.45rem;margin-bottom:.3rem}
+.hc-av{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.58rem;font-family:var(--font-d);font-weight:700}
+.hc-name{font-size:.73rem;font-weight:600}
+.hc-from{font-size:.62rem;color:var(--purple);margin-left:auto}
+.hc-time{font-size:.62rem;color:var(--muted)}
+.hc-task{font-size:.73rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2rem}
+.hc-resp{font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* FORMS */
-.section-title{font-family:var(--font-display);font-weight:700;font-size:.95rem;margin-bottom:.85rem}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}
-.fg{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.7rem}
-.fl{font-size:.65rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
-.fi,.fs,.ft{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-mono);font-size:.8rem;padding:.55rem .75rem;outline:none;transition:border-color .15s;width:100%}
+.stitle{font-family:var(--font-d);font-weight:700;font-size:.9rem;margin-bottom:.8rem}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.fg{display:flex;flex-direction:column;gap:.2rem;margin-bottom:.65rem}
+.fl{font-size:.62rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.fi,.fs,.ft{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-m);font-size:.78rem;padding:.52rem .72rem;outline:none;transition:border-color .15s;width:100%}
 .fi:focus,.fs:focus,.ft:focus{border-color:var(--accent2)}
-.ft{resize:vertical;min-height:150px;line-height:1.55}
+.ft{resize:vertical;min-height:140px;line-height:1.5}
 .fs option{background:var(--s2)}
-.btn-primary{background:var(--accent2);color:var(--bg);border:none;border-radius:var(--r);padding:.6rem 1.2rem;font-family:var(--font-display);font-weight:700;font-size:.82rem;cursor:pointer;transition:all .15s;margin-top:.25rem}
-.btn-primary:hover{opacity:.85}
-.btn-primary:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
-.btn-green{background:var(--green);color:var(--bg)}
-.btn-yellow{background:var(--yellow);color:var(--bg)}
-.fstatus{margin-top:.6rem;padding:.6rem .8rem;border-radius:var(--r);font-size:.72rem;white-space:pre-wrap;display:none;line-height:1.5;border:1px solid}
-.fs-ok{background:rgba(86,211,100,.08);border-color:rgba(86,211,100,.25);color:var(--green)}
-.fs-err{background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.25);color:var(--red)}
-.fs-warn{background:rgba(227,179,65,.08);border-color:rgba(227,179,65,.25);color:var(--yellow)}
+.bpri{background:var(--accent2);color:var(--bg);border:none;border-radius:var(--r);padding:.55rem 1.1rem;font-family:var(--font-d);font-weight:700;font-size:.8rem;cursor:pointer;transition:all .15s;margin-top:.2rem}
+.bpri:hover{opacity:.85}
+.bpri:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
+.bgr{background:var(--green);color:var(--bg)}
+.fst{margin-top:.55rem;padding:.55rem .75rem;border-radius:var(--r);font-size:.7rem;white-space:pre-wrap;display:none;line-height:1.5;border:1px solid}
+.fok{background:rgba(86,211,100,.08);border-color:rgba(86,211,100,.25);color:var(--green)}
+.ferr{background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.25);color:var(--red)}
+.fwarn{background:rgba(227,179,65,.08);border-color:rgba(227,179,65,.25);color:var(--yellow)}
 
-/* AGENT MANAGE CARD */
-.amc{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.7rem .85rem;display:flex;align-items:center;gap:.65rem;margin-bottom:.45rem}
+/* MANAGE */
+.amc{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:.65rem .8rem;display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
 .amc-info{flex:1;min-width:0}
-.amc-name{font-size:.82rem;font-weight:600}
-.amc-id{font-size:.67rem;color:var(--muted)}
-.amc-actions{display:flex;gap:.35rem;flex-shrink:0}
-.abtn{font-size:.63rem;padding:2px 7px;background:transparent;border:1px solid;border-radius:3px;cursor:pointer;font-family:var(--font-mono);text-decoration:none;display:inline-block}
-.abtn-yellow{border-color:var(--yellow);color:var(--yellow)}.abtn-yellow:hover{background:rgba(227,179,65,.1)}
-.abtn-blue{border-color:var(--accent2);color:var(--accent2)}.abtn-blue:hover{background:rgba(121,192,255,.08)}
+.amc-name{font-size:.8rem;font-weight:600}
+.amc-sub{font-size:.65rem;color:var(--muted)}
+.amca{display:flex;gap:.3rem;flex-shrink:0}
+.abtn{font-size:.62rem;padding:2px 7px;background:transparent;border:1px solid;border-radius:3px;cursor:pointer;font-family:var(--font-m);text-decoration:none;display:inline-block}
+.abtn-y{border-color:var(--yellow);color:var(--yellow)}.abtn-y:hover{background:rgba(227,179,65,.1)}
+.abtn-b{border-color:var(--accent2);color:var(--accent2)}.abtn-b:hover{background:rgba(121,192,255,.08)}
+.soul-box{background:var(--s2);border:1px solid rgba(227,179,65,.4);border-radius:var(--r);padding:.8rem;margin-top:.7rem;display:none}
 
-/* soul repair */
-.soul-box{background:var(--s2);border:1px solid rgba(227,179,65,.4);border-radius:var(--r);padding:.85rem;margin-top:.75rem;display:none}
-.soul-box h4{font-size:.72rem;font-weight:600;color:var(--yellow);margin-bottom:.55rem;text-transform:uppercase;letter-spacing:.06em}
+/* NETWORK PANEL */
+.net-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:1rem;margin-bottom:.7rem}
+.net-card h3{font-size:.72rem;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.7rem}
+.url-row{display:flex;align-items:center;gap:.6rem;padding:.5rem .65rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;margin-bottom:.4rem}
+.url-text{font-size:.75rem;color:var(--green);flex:1;font-family:var(--font-m)}
+.copy-btn{font-size:.62rem;padding:2px 7px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer;font-family:var(--font-m)}
+.copy-btn:hover{background:var(--s2);color:var(--text)}
+.qr-placeholder{width:120px;height:120px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--muted);text-align:center;padding:.5rem;line-height:1.4}
+.net-tip{font-size:.72rem;color:var(--muted);line-height:1.6;padding:.6rem .75rem;background:rgba(86,211,100,.05);border:1px solid rgba(86,211,100,.15);border-radius:var(--r);margin-top:.5rem}
+.net-tip strong{color:var(--text)}
+
+/* Network modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:1.25rem;width:90%;max-width:420px;max-height:80vh;overflow-y:auto}
+.modal h2{font-family:var(--font-d);font-size:.95rem;margin-bottom:1rem;color:var(--accent2)}
+.modal-close{float:right;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;margin-top:-.2rem}
 
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Mobile responsive */
+@media(max-width:600px){
+  .shell{grid-template-columns:1fr;grid-template-rows:52px auto 1fr}
+  .sidebar{display:none}
+  .sidebar.mob-open{display:flex;position:fixed;left:0;top:52px;bottom:0;width:200px;z-index:50}
+  .mob-menu{display:flex!important}
+}
+.mob-menu{display:none;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:.2rem}
 </style>
 </head>
 <body>
@@ -165,102 +201,107 @@ a.dbg{font-size:.68rem;color:var(--muted);border:1px solid var(--border);padding
 
   <!-- TOPBAR -->
   <header class="topbar">
+    <button class="mob-menu" onclick="toggleSidebar()">☰</button>
     <div class="brand">🦀 Nexus.AI</div>
-    <div class="tab-bar">
+    <div class="tabs">
       <button class="tab active" onclick="showPanel('task')">Tasks</button>
       <button class="tab" onclick="showPanel('history')">History</button>
       <button class="tab" onclick="showPanel('create')">New Agent</button>
       <button class="tab" onclick="showPanel('manage')">Manage</button>
     </div>
-    <div class="gw-status">
-      <div class="dot dot-checking" id="gwDot"></div>
-      <span id="gwLabel" style="color:var(--muted)">Checking…</span>
+    <div class="gws">
+      <div class="dot dot-chk" id="gwDot"></div>
+      <span id="gwLabel">…</span>
     </div>
-    <a class="dbg" href="/api/debug" target="_blank">debug</a>
+    <button class="net-btn" onclick="openNetModal()">📱 Network</button>
   </header>
 
   <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sb-section">Agents</div>
-    <div id="sbAgents"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-sec">Agents</div>
+    <div class="sb-list" id="sbAgents"></div>
     <button class="sb-add" onclick="showPanel('create')">＋ New agent</button>
   </aside>
 
   <!-- MAIN -->
   <main class="main">
 
-    <!-- ── TASK PANEL ── -->
+    <!-- TASK -->
     <div class="panel active" id="panel-task">
-      <!-- No agent selected -->
-      <div class="empty-task" id="noAgent">
+      <div class="empty" id="noAgent">
         <div class="big">🤖</div>
         <h3>Select an agent</h3>
-        <p>Choose an agent from the sidebar to assign a task</p>
+        <p>Pick an agent from the sidebar. Use <strong style="color:var(--purple)">@AgentName</strong> in your task to auto-delegate to other agents.</p>
       </div>
-
-      <!-- Task UI -->
-      <div class="task-pane" id="taskPane" style="display:none">
-        <div class="task-header">
-          <div class="task-av" id="tAvatar"></div>
-          <div>
-            <div class="task-name" id="tName"></div>
-            <div class="task-model" id="tModel"></div>
-          </div>
-          <a class="oc-link" id="tOCLink" href="#" target="_blank">View in OpenClaw ↗</a>
-          <button class="btn-sm" onclick="clearConv()" style="margin-left:.5rem">Clear</button>
+      <div id="taskPane" style="display:none;flex-direction:column;height:100%;overflow:hidden">
+        <div class="task-hdr">
+          <div class="t-av" id="tAv"></div>
+          <div><div class="t-name" id="tName"></div><div class="t-model" id="tModel"></div></div>
+          <a class="oc-link" id="tOC" href="#" target="_blank">OpenClaw ↗</a>
+          <button class="bsm" onclick="clearConv()" style="margin-left:.4rem">Clear</button>
         </div>
 
         <div class="task-body">
-          <div class="response-wrap">
-            <!-- Response -->
-            <div class="response-box" id="respBox">
-              <div class="response-placeholder" id="respPlaceholder">Agent response will stream here…</div>
-              <div class="response-text" id="respText" style="display:none"></div>
+          <div class="resp-wrap">
+            <!-- Primary response -->
+            <div class="resp-box" id="respBox">
+              <div class="placeholder" id="ph">Agent response streams here…</div>
+              <div class="resp-text" id="rt" style="display:none"></div>
             </div>
 
-            <!-- Debug log toggle -->
-            <div class="debug-bar" onclick="toggleDebug()">
-              <span>🔍 WS Debug Log</span>
-              <span id="logCount" style="color:var(--accent2)"></span>
-              <span class="toggle" id="debugToggleLabel">▼ show</span>
+            <!-- Delegation results -->
+            <div class="deleg-box" id="delegBox">
+              <div class="deleg-hdr">🔀 Delegated Tasks</div>
+              <div id="delegItems"></div>
             </div>
-            <div class="debug-log" id="debugLog"></div>
+
+            <!-- Debug log -->
+            <div class="dbg-bar" onclick="toggleDbg()">
+              <span>🔍 Debug</span>
+              <span id="logCnt" style="color:var(--accent2)"></span>
+              <span id="dbgToggle" style="margin-left:auto;font-size:.65rem;color:var(--muted)">▼</span>
+            </div>
+            <div class="dbg-log" id="dbgLog"></div>
 
             <!-- Status -->
-            <div class="status-bar">
-              <div class="sdot sd-idle" id="sdot"></div>
+            <div class="sbar">
+              <div class="sd sd-idle" id="sdot"></div>
               <span id="slabel">Ready</span>
-              <span style="margin-left:auto;font-size:.65rem" id="charCount"></span>
+              <span style="margin-left:auto;font-size:.63rem" id="chars"></span>
             </div>
           </div>
 
           <!-- Input -->
-          <div class="input-row">
-            <textarea class="task-input" id="taskInput"
-              placeholder="Describe the task…&#10;&#10;e.g. Review the auth module for security vulnerabilities."
+          <div class="inp-row">
+            <textarea class="task-inp" id="taskInp"
+              placeholder="Describe the task…&#10;&#10;Tip: use @AgentName to auto-delegate to another agent&#10;e.g. 'Review auth module and @QAEngineer write test cases for it'"
               onkeydown="handleKey(event)"></textarea>
-            <div class="input-btns">
+            <div class="inp-btns">
               <button class="btn-send" id="sendBtn" onclick="sendTask()">Send ↵</button>
-              <button class="btn-sm" onclick="clearResp()">Clear resp</button>
+              <button class="bsm" onclick="clearResp()">Clear</button>
             </div>
           </div>
+          <div class="hint">💡 Use <strong style="color:var(--purple)">@AgentName</strong> in your task to auto-assign sub-tasks to other agents. They run after the primary agent responds.</div>
         </div>
       </div>
     </div>
 
-    <!-- ── HISTORY ── -->
+    <!-- HISTORY -->
     <div class="panel" id="panel-history">
-      <div class="panel-scroll">
-        <div class="section-title">Task History</div>
+      <div class="pscroll">
+        <div style="display:flex;align-items:center;margin-bottom:.8rem">
+          <div class="stitle" style="margin:0">Task History</div>
+          <button class="bsm" onclick="clearHistory()" style="margin-left:auto">🗑 Clear all</button>
+        </div>
         <div id="histList"></div>
       </div>
     </div>
 
-    <!-- ── CREATE ── -->
+    <!-- CREATE -->
     <div class="panel" id="panel-create">
-      <div class="panel-scroll">
-        <div class="section-title">Create New Agent</div>
-        <div class="form-row">
+      <div class="pscroll">
+        <div class="stitle">Create New Agent</div>
+        <div class="frow">
           <div class="fg"><label class="fl">Agent Name</label><input class="fi" id="cName" placeholder="e.g. QAEngineer"></div>
           <div class="fg"><label class="fl">Model</label>
             <select class="fs" id="cModel">
@@ -274,34 +315,34 @@ a.dbg{font-size:.68rem;color:var(--muted);border:1px solid var(--border);padding
           </div>
         </div>
         <div class="fg"><label class="fl">Personality — SOUL.md</label>
-          <textarea class="ft" id="cSoul" placeholder="# Who You Are&#10;&#10;You are [Name], a specialized AI agent focused on..."></textarea>
+          <textarea class="ft" id="cSoul" placeholder="# Who You Are&#10;&#10;You are [Name]..."></textarea>
         </div>
-        <button class="btn-primary" id="createBtn" onclick="createAgent()">Create &amp; Register Agent</button>
-        <div class="fstatus" id="createStatus"></div>
+        <button class="bpri" id="cBtn" onclick="createAgent()">Create &amp; Register Agent</button>
+        <div class="fst" id="cStatus"></div>
       </div>
     </div>
 
-    <!-- ── MANAGE ── -->
+    <!-- MANAGE -->
     <div class="panel" id="panel-manage">
-      <div class="panel-scroll">
-        <div class="section-title">Manage Agents</div>
+      <div class="pscroll">
+        <div class="stitle">Manage Agents</div>
         <div id="manageList"></div>
-        <div style="display:flex;gap:.5rem;margin-top:.75rem">
-          <button class="btn-primary btn-green" onclick="fixAll()">⚡ Fix All Configs</button>
-          <button class="btn-sm" onclick="loadAgents()" style="padding:.5rem .9rem">↻ Refresh</button>
+        <div style="display:flex;gap:.5rem;margin-top:.7rem">
+          <button class="bpri bgr" onclick="fixAll()">⚡ Fix All Configs</button>
+          <button class="bsm" onclick="loadAgents()" style="padding:.45rem .8rem">↻ Refresh</button>
         </div>
-        <div class="fstatus" id="fixStatus"></div>
+        <div class="fst" id="fixSt"></div>
         <div class="soul-box" id="soulBox">
-          <h4>Edit SOUL.md — <span id="soulBoxName" style="color:var(--accent)"></span></h4>
-          <textarea class="ft" id="soulText" style="min-height:120px" placeholder="Paste full SOUL.md here…"></textarea>
-          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
-            <label style="display:flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--muted);cursor:pointer">
-              <input type="checkbox" id="globalSoul" checked style="accent-color:var(--yellow)"> Update global SOUL.md too
+          <div style="font-size:.7rem;font-weight:600;color:var(--yellow);margin-bottom:.5rem">SOUL.md — <span id="soulBoxName"></span></div>
+          <textarea class="ft" id="soulTxt" style="min-height:110px"></textarea>
+          <div style="display:flex;align-items:center;gap:.4rem;margin-top:.45rem">
+            <label style="display:flex;align-items:center;gap:.3rem;font-size:.7rem;color:var(--muted);cursor:pointer">
+              <input type="checkbox" id="globalSoul" checked style="accent-color:var(--yellow)"> Global SOUL.md too
             </label>
-            <button class="btn-primary btn-yellow" onclick="submitSoul()" style="margin-left:auto;margin-top:0">Save</button>
-            <button class="btn-sm" onclick="closeSoul()">Cancel</button>
+            <button class="bpri" style="background:var(--yellow);color:var(--bg);margin:0;margin-left:auto;padding:.4rem .9rem" onclick="submitSoul()">Save</button>
+            <button class="bsm" onclick="closeSoul()">Cancel</button>
           </div>
-          <div class="fstatus" id="soulStatus"></div>
+          <div class="fst" id="soulSt"></div>
         </div>
       </div>
     </div>
@@ -309,368 +350,450 @@ a.dbg{font-size:.68rem;color:var(--muted);border:1px solid var(--border);padding
   </main>
 </div>
 
+<!-- NETWORK MODAL -->
+<div class="modal-overlay" id="netModal">
+  <div class="modal">
+    <h2>📱 Access from other devices <button class="modal-close" onclick="closeNetModal()">✕</button></h2>
+    <div id="netContent">Loading…</div>
+  </div>
+</div>
+
 <script>
 // ── STATE ──
-let agents        = [];
-let selected      = null;
-let streaming     = false;
-let soulAgentId   = null;
-let debugOpen     = false;
-let logLines      = [];
+let agents = [], selected = null, streaming = false;
+let soulId = null, dbgOpen = false, logCount = 0;
+let delegState = {}; // agentId → { status, response }
 
-const COLORS = [
-  ['#f78166','#2d1010'],['#79c0ff','#0d1f2d'],['#56d364','#0d2110'],
-  ['#bc8cff','#1a0d2d'],['#e3b341','#2d1e0d'],['#58a6ff','#0d1a2d'],
-  ['#3fb950','#0d200f'],['#ff7b72','#2d0f0d'],
-];
-const color  = id  => COLORS[id.charCodeAt(0) % COLORS.length];
-const init   = name => (name||'?')[0].toUpperCase();
-const escape = t   => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const COLORS=[['#f78166','#2d1010'],['#79c0ff','#0d1f2d'],['#56d364','#0d2110'],
+  ['#bc8cff','#1a0d2d'],['#e3b341','#2d1e0d'],['#58a6ff','#0d1a2d'],['#3fb950','#0d200f'],['#ff7b72','#2d0f0d']];
+const clr  = id => COLORS[id.charCodeAt(0)%COLORS.length];
+const init = n  => (n||'?')[0].toUpperCase();
+const esc  = t  => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ── MOBILE SIDEBAR ──
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('mob-open');}
 
 // ── PANELS ──
-function showPanel(name) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+function showPanel(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
-  ['task','history','create','manage'].forEach((n,i) =>
-    document.querySelectorAll('.tab')[i].classList.toggle('active', n===name));
-  if (name==='history') loadHistory();
-  if (name==='manage')  renderManage();
+  ['task','history','create','manage'].forEach((n,i)=>document.querySelectorAll('.tab')[i].classList.toggle('active',n===name));
+  if(name==='history') loadHistory();
+  if(name==='manage')  renderManage();
 }
 
 // ── GATEWAY STATUS ──
-async function checkGateway() {
-  const dot = document.getElementById('gwDot');
-  const lbl = document.getElementById('gwLabel');
-  try {
-    const d = await fetch('/api/debug').then(r=>r.json());
-    dot.className='dot dot-online';
-    lbl.textContent=`Online · ${d.configAgentsList?.length||0} agents`;
-  } catch {
-    dot.className='dot dot-offline';
-    lbl.textContent='Gateway offline';
-  }
+async function checkGateway(){
+  const dot=document.getElementById('gwDot'), lbl=document.getElementById('gwLabel');
+  try{
+    const d=await fetch('/api/debug').then(r=>r.json());
+    dot.className='dot dot-on'; lbl.textContent=`Online·${d.configAgentsList?.length||0}`;
+  }catch{dot.className='dot dot-off'; lbl.textContent='Offline';}
 }
 
-// ── LOAD AGENTS ──
-async function loadAgents() {
-  try { agents = await fetch('/api/agents').then(r=>r.json()); }
-  catch { agents=[]; }
-  renderSidebar();
-  renderManage();
+// ── AGENTS ──
+async function loadAgents(){
+  try{agents=await fetch('/api/agents').then(r=>r.json());}catch{agents=[];}
+  renderSidebar(); renderManage();
 }
 
-function renderSidebar() {
-  const el = document.getElementById('sbAgents');
-  if (!agents.length) { el.innerHTML='<div style="padding:.4rem .5rem;font-size:.74rem;color:var(--muted)">No agents</div>'; return; }
-  el.innerHTML = agents.map(a => {
-    const [fg,bg] = color(a.id);
-    const ok = a.inConfig && a.workspaceOk;
-    return `<button class="agent-btn${selected?.id===a.id?' selected':''}" onclick="selectAgent('${a.id}')">
+function renderSidebar(){
+  const el=document.getElementById('sbAgents');
+  if(!agents.length){el.innerHTML='<div style="padding:.4rem .5rem;font-size:.72rem;color:var(--muted)">No agents</div>';return;}
+  el.innerHTML=agents.map(a=>{
+    const[fg,bg]=clr(a.id),ok=a.inConfig&&a.workspaceOk;
+    return `<button class="ab${selected?.id===a.id?' sel':''}" onclick="selectAgent('${a.id}')">
       <div class="av" style="background:${bg};color:${fg}">${init(a.name)}</div>
       <span class="abn">${a.name}</span>
-      <span class="abadge ${ok?'b-ok':'b-err'}">${ok?'✓':'!'}</span>
+      <span class="abg ${ok?'bok':'berr'}">${ok?'✓':'!'}</span>
     </button>`;
   }).join('');
 }
 
-// ── SELECT AGENT ──
-function selectAgent(id) {
-  selected = agents.find(a=>a.id===id);
-  if (!selected) return;
+function selectAgent(id){
+  selected=agents.find(a=>a.id===id);
+  if(!selected)return;
   renderSidebar();
-  const [fg,bg] = color(selected.id);
-  document.getElementById('tAvatar').style.cssText = `background:${bg};color:${fg}`;
-  document.getElementById('tAvatar').textContent = init(selected.name);
-  document.getElementById('tName').textContent    = selected.name;
-  document.getElementById('tModel').textContent   = selected.model;
-  document.getElementById('tOCLink').href = `http://127.0.0.1:18789/chat?session=agent:${selected.id}:main`;
-  document.getElementById('noAgent').style.display = 'none';
-  document.getElementById('taskPane').style.display = 'flex';
-  clearResp();
-  showPanel('task');
+  const[fg,bg]=clr(selected.id);
+  document.getElementById('tAv').style.cssText=`background:${bg};color:${fg}`;
+  document.getElementById('tAv').textContent=init(selected.name);
+  document.getElementById('tName').textContent=selected.name;
+  document.getElementById('tModel').textContent=selected.model;
+  document.getElementById('tOC').href=`http://127.0.0.1:18789/chat?session=agent:${selected.id}:main`;
+  document.getElementById('noAgent').style.display='none';
+  document.getElementById('taskPane').style.display='flex';
+  clearResp(); showPanel('task');
+  document.getElementById('sidebar').classList.remove('mob-open');
 }
 
 // ── DEBUG LOG ──
-function addLog(msg, type='') {
-  logLines.push({msg, type});
-  const el = document.getElementById('debugLog');
-  const div = document.createElement('div');
-  div.className = `log-line ${type}`;
-  div.textContent = msg;
-  el.appendChild(div);
-  el.scrollTop = 99999;
-  document.getElementById('logCount').textContent = `(${logLines.length})`;
+function addLog(msg,type=''){
+  logCount++;
+  const el=document.getElementById('dbgLog');
+  const d=document.createElement('div');
+  d.className=`ll ${type}`; d.textContent=msg; el.appendChild(d);
+  el.scrollTop=99999;
+  document.getElementById('logCnt').textContent=`(${logCount})`;
 }
-
-function clearLogs() {
-  logLines=[];
-  document.getElementById('debugLog').innerHTML='';
-  document.getElementById('logCount').textContent='';
-}
-
-function toggleDebug() {
-  debugOpen = !debugOpen;
-  document.getElementById('debugLog').classList.toggle('open', debugOpen);
-  document.getElementById('debugToggleLabel').textContent = debugOpen ? '▲ hide' : '▼ show';
-  // Auto-open on error
+function clearLogs(){logCount=0;document.getElementById('dbgLog').innerHTML='';document.getElementById('logCnt').textContent='';}
+function toggleDbg(){
+  dbgOpen=!dbgOpen;
+  document.getElementById('dbgLog').classList.toggle('open',dbgOpen);
+  document.getElementById('dbgToggle').textContent=dbgOpen?'▲':'▼';
 }
 
 // ── STATUS ──
-function setStatus(type, text) {
-  const d = document.getElementById('sdot');
-  d.className = `sdot sd-${type==='work'?'work':type==='done'?'done':type==='err'?'err':'idle'}`;
-  document.getElementById('slabel').textContent = text;
+function setSt(type,text){
+  document.getElementById('sdot').className=`sd sd-${type==='work'?'work':type==='done'?'done':type==='err'?'err':'idle'}`;
+  document.getElementById('slabel').textContent=text;
+}
+
+// ── DELEGATION UI ──
+function initDelegUI(delegations){
+  delegState={};
+  const box=document.getElementById('delegBox');
+  const items=document.getElementById('delegItems');
+  if(!delegations||!delegations.length){box.classList.remove('show');return;}
+  box.classList.add('show');
+  items.innerHTML=delegations.map(d=>{
+    delegState[d.agentId]='pending';
+    const[fg,bg]=clr(d.agentId);
+    return `<div class="deleg-item" id="di-${d.agentId}">
+      <div class="deleg-item-hdr">
+        <div class="d-av" style="background:${bg};color:${fg}">${init(d.agentName)}</div>
+        <span class="d-name">${d.agentName}</span>
+        <span class="d-status ds-pending" id="ds-${d.agentId}">Pending</span>
+      </div>
+      <div class="d-resp" id="dr-${d.agentId}">Waiting…</div>
+    </div>`;
+  }).join('');
+}
+
+function updateDeleg(agentId,status,text){
+  const el=document.getElementById(`ds-${agentId}`);
+  const re=document.getElementById(`dr-${agentId}`);
+  if(!el)return;
+  el.className=`d-status ${status==='running'?'ds-running':status==='done'?'ds-done':status==='error'?'ds-err':'ds-pending'}`;
+  el.textContent=status.charAt(0).toUpperCase()+status.slice(1);
+  if(text&&re) re.textContent=text.substring(0,120)+(text.length>120?'…':'');
 }
 
 // ── SEND TASK ──
-function handleKey(e) {
-  if (e.key==='Enter' && (e.metaKey||e.ctrlKey)) { e.preventDefault(); sendTask(); }
-}
+function handleKey(e){if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();sendTask();}}
 
-async function sendTask() {
-  if (!selected || streaming) return;
-  const task = document.getElementById('taskInput').value.trim();
-  if (!task) return;
+async function sendTask(){
+  if(!selected||streaming)return;
+  const task=document.getElementById('taskInp').value.trim();
+  if(!task)return;
 
-  streaming = true;
+  streaming=true;
   clearLogs();
-  document.getElementById('sendBtn').disabled = true;
-  document.getElementById('sendBtn').textContent = 'Sending…';
-  document.getElementById('taskInput').value = '';
+  clearDeleg();
+  document.getElementById('sendBtn').disabled=true;
+  document.getElementById('sendBtn').textContent='Sending…';
+  document.getElementById('taskInp').value='';
 
-  setStatus('work', 'Connecting to agent…');
-  document.getElementById('respPlaceholder').style.display = 'none';
-  const respText = document.getElementById('respText');
-  respText.style.display = 'block';
-  respText.innerHTML = '<span class="cursor"></span>';
+  setSt('work','Connecting…');
+  document.getElementById('ph').style.display='none';
+  const rt=document.getElementById('rt');
+  rt.style.display='block'; rt.innerHTML='<span class="cursor"></span>';
   document.getElementById('respBox').classList.add('streaming');
 
-  let fullResponse = '';
-  let charCount    = 0;
+  let full='', chars=0;
+  addLog(`→ ${selected.id}: ${task.substring(0,50)}…`,'');
 
-  addLog(`Sending to agent: ${selected.id}`, '');
-  addLog(`Task: ${task.substring(0,60)}…`, '');
-
-  try {
-    const res = await fetch('/api/task', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ agentId: selected.id, task }),
+  try{
+    const res=await fetch('/api/task',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agentId:selected.id,task}),
     });
+    if(!res.ok) throw new Error(`Server ${res.status}`);
 
-    if (!res.ok) {
-      throw new Error(`Server error: ${res.status} ${await res.text()}`);
-    }
+    const reader=res.body.getReader(), dec=new TextDecoder();
+    let buf='';
 
-    const reader  = res.body.getReader();
-    const decoder = new TextDecoder();
-    let   buf     = '';
+    while(true){
+      const{done,value}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n'); buf=lines.pop();
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop(); // keep incomplete line
+      for(const line of lines){
+        if(!line.startsWith('data:'))continue;
+        const raw=line.slice(5).trim();
+        if(raw==='[DONE]'||!raw)continue;
+        let p; try{p=JSON.parse(raw);}catch{continue;}
 
-      for (const line of lines) {
-        if (!line.startsWith('data:')) continue;
-        const raw = line.slice(5).trim();
-        if (raw === '[DONE]') continue;
-        if (!raw) continue;
-
-        let parsed;
-        try { parsed = JSON.parse(raw); } catch { continue; }
-
-        // WS debug log from server
-        if (parsed.log) {
-          const isErr = parsed.log.includes('ERROR') || parsed.log.includes('error');
-          const isOk  = parsed.log.includes('✓') || parsed.log.includes('OK') || parsed.log.includes('accepted');
-          addLog(parsed.log, isErr?'err':isOk?'ok':'');
-          // Auto-open debug log if we see an error
-          if (isErr && !debugOpen) toggleDebug();
+        // Log
+        if(p.log){
+          const isErr=p.log.includes('ERROR')||p.log.includes('error');
+          const isOk=p.log.includes('✓')||p.log.includes('OK')||p.log.includes('Accepted');
+          addLog(p.log,isErr?'err':isOk?'ok':'');
+          if(isErr&&!dbgOpen)toggleDbg();
           continue;
         }
 
-        // Text chunk
-        if (parsed.chunk !== undefined) {
-          const chunkStr = typeof parsed.chunk === 'string' ? parsed.chunk : JSON.stringify(parsed.chunk);
-          fullResponse += chunkStr;
-          charCount    += chunkStr.length;
-          respText.innerHTML = escape(fullResponse) + '<span class="cursor"></span>';
-          document.getElementById('respBox').scrollTop = 999999;
-          document.getElementById('charCount').textContent = `${charCount} chars`;
+        // Delegation detected — show UI
+        if(p.type==='delegation_detected'){
+          initDelegUI(p.agents);
+          addLog(`🔀 Delegating to: ${p.agents.map(a=>a.agentName).join(', ')}`,'ok');
+          continue;
+        }
+
+        // Delegation started
+        if(p.type==='delegation_start'){
+          updateDeleg(p.agentId,'running','Working…');
+          addLog(`[${p.agentName}] Starting…`,'');
+          continue;
+        }
+
+        // Delegation chunk
+        if(p.delegationChunk!==undefined){
+          const c=typeof p.delegationChunk==='string'?p.delegationChunk:JSON.stringify(p.delegationChunk);
+          const dr=document.getElementById(`dr-${p.agentId}`);
+          if(dr) dr.textContent=(dr.textContent==='Working…'?'':dr.textContent)+c;
+          continue;
+        }
+
+        // Delegation done
+        if(p.delegationDone){
+          updateDeleg(p.agentId,'done',p.response);
+          addLog(`[${p.agentName}] ✓ Done`,'ok');
+          continue;
+        }
+
+        // Delegation error
+        if(p.delegationError){
+          updateDeleg(p.agentId,'error',p.delegationError);
+          addLog(`[${p.agentName}] Error: ${p.delegationError}`,'err');
+          continue;
+        }
+
+        // Primary chunk
+        if(p.chunk!==undefined){
+          const c=typeof p.chunk==='string'?p.chunk:JSON.stringify(p.chunk);
+          full+=c; chars+=c.length;
+          rt.innerHTML=esc(full)+'<span class="cursor"></span>';
+          document.getElementById('respBox').scrollTop=999999;
+          document.getElementById('chars').textContent=`${chars} chars`;
           continue;
         }
 
         // Error
-        if (parsed.error) {
-          addLog(`ERROR: ${parsed.error}`, 'err');
-          if (!debugOpen) toggleDebug();
-          fullResponse = `⚠ ${parsed.error}`;
-          respText.innerHTML = escape(fullResponse);
-          setStatus('err', 'Error — check debug log above');
+        if(p.error){
+          addLog(`ERROR: ${p.error}`,'err');
+          if(!dbgOpen)toggleDbg();
+          rt.innerHTML=esc(`⚠ ${p.error}`);
+          setSt('err','Error');
           break;
         }
 
-        // Done
-        if (parsed.done) {
-          addLog('Task complete ✓', 'ok');
-          break;
-        }
+        if(p.done){addLog('✓ Complete','ok');break;}
       }
     }
 
-    if (!fullResponse.startsWith('⚠')) {
-      respText.innerHTML = escape(fullResponse) || '<span style="color:var(--muted);font-style:italic">Agent returned empty response</span>';
-      setStatus('done', `Done · ${new Date().toLocaleTimeString()}`);
-      // Save to history
-      await fetch('/api/tasks/save', {
-        method:  'POST',
-        headers: {'Content-Type':'application/json'},
-        body:    JSON.stringify({ agentId:selected.id, agentName:selected.name, task, response:fullResponse, status:'done' }),
-      }).catch(()=>{});
+    if(!full.startsWith('⚠')){
+      rt.innerHTML=esc(full)||'<span style="color:var(--muted);font-style:italic">Empty response</span>';
+      setSt('done',`Done · ${new Date().toLocaleTimeString()}`);
+      await fetch('/api/tasks/save',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({agentId:selected.id,agentName:selected.name,task,response:full,status:'done'})}).catch(()=>{});
     }
-
-  } catch(err) {
-    addLog(`FATAL: ${err.message}`, 'err');
-    if (!debugOpen) toggleDebug();
-    respText.innerHTML = `⚠ ${escape(err.message)}`;
-    setStatus('err', 'Error');
+  }catch(e){
+    addLog(`FATAL: ${e.message}`,'err');
+    if(!dbgOpen)toggleDbg();
+    rt.innerHTML=esc(`⚠ ${e.message}`);
+    setSt('err','Error');
   }
 
   document.getElementById('respBox').classList.remove('streaming');
-  streaming = false;
-  document.getElementById('sendBtn').disabled = false;
-  document.getElementById('sendBtn').textContent = 'Send ↵';
+  streaming=false;
+  document.getElementById('sendBtn').disabled=false;
+  document.getElementById('sendBtn').textContent='Send ↵';
 }
 
-function clearResp() {
-  document.getElementById('respPlaceholder').style.display='block';
-  document.getElementById('respText').style.display='none';
-  document.getElementById('respText').innerHTML='';
+function clearDeleg(){
+  delegState={};
+  document.getElementById('delegBox').classList.remove('show');
+  document.getElementById('delegItems').innerHTML='';
+}
+
+function clearResp(){
+  document.getElementById('ph').style.display='block';
+  document.getElementById('rt').style.display='none';
+  document.getElementById('rt').innerHTML='';
   document.getElementById('respBox').classList.remove('streaming');
-  document.getElementById('charCount').textContent='';
-  setStatus('idle','Ready');
+  document.getElementById('chars').textContent='';
+  clearDeleg(); setSt('idle','Ready');
 }
-
-function clearConv() { clearResp(); clearLogs(); }
+function clearConv(){clearResp();clearLogs();}
 
 // ── HISTORY ──
-async function loadHistory() {
-  const tasks = await fetch('/api/tasks').then(r=>r.json()).catch(()=>[]);
-  const el    = document.getElementById('histList');
-  if (!tasks.length) {
-    el.innerHTML='<div style="color:var(--muted);font-size:.8rem;text-align:center;padding:2rem">No tasks yet</div>';
-    return;
-  }
-  el.innerHTML = tasks.map(t => {
-    const [fg,bg] = color(t.agentId||'a');
-    return `<div class="history-card" onclick="replayTask('${t.id}')">
+async function loadHistory(){
+  const tasks=await fetch('/api/tasks').then(r=>r.json()).catch(()=>[]);
+  const el=document.getElementById('histList');
+  if(!tasks.length){el.innerHTML='<div style="color:var(--muted);font-size:.78rem;text-align:center;padding:2rem">No tasks yet</div>';return;}
+  el.innerHTML=tasks.map(t=>{
+    const[fg,bg]=clr(t.agentId||'a');
+    const isDel=t.fromAgent;
+    return `<div class="hcard${isDel?' delegated':''}" onclick="replayTask('${t.id}')">
       <div class="hc-top">
         <div class="hc-av" style="background:${bg};color:${fg}">${init(t.agentName||'?')}</div>
         <span class="hc-name">${t.agentName}</span>
-        <span class="hc-time">${new Date(t.createdAt).toLocaleString()}</span>
+        ${isDel?`<span class="hc-from">← from ${t.fromAgent}</span>`:''}
+        <span class="hc-time" style="margin-left:${isDel?'0':'auto'}">${new Date(t.createdAt).toLocaleString()}</span>
       </div>
-      <div class="hc-task">📤 ${escape(t.task)}</div>
-      <div class="hc-resp">💬 ${escape((t.response||'').substring(0,100))}…</div>
+      <div class="hc-task">📤 ${esc(t.task.substring(0,80))}</div>
+      <div class="hc-resp">💬 ${esc((t.response||'').substring(0,100))}…</div>
     </div>`;
   }).join('');
 }
 
-async function replayTask(id) {
-  const tasks = await fetch('/api/tasks').then(r=>r.json()).catch(()=>[]);
-  const t = tasks.find(x=>x.id===id);
-  if (!t) return;
-  const agent = agents.find(a=>a.id===t.agentId);
-  if (agent) selectAgent(agent.id);
-  document.getElementById('respText').innerHTML = escape(t.response||'');
-  document.getElementById('respText').style.display='block';
-  document.getElementById('respPlaceholder').style.display='none';
-  setStatus('done', `From history · ${new Date(t.createdAt).toLocaleString()}`);
+async function replayTask(id){
+  const tasks=await fetch('/api/tasks').then(r=>r.json()).catch(()=>[]);
+  const t=tasks.find(x=>x.id===id); if(!t)return;
+  const ag=agents.find(a=>a.id===t.agentId); if(ag)selectAgent(ag.id);
+  document.getElementById('rt').innerHTML=esc(t.response||'');
+  document.getElementById('rt').style.display='block';
+  document.getElementById('ph').style.display='none';
+  setSt('done',`History · ${new Date(t.createdAt).toLocaleString()}`);
   showPanel('task');
 }
 
-// ── CREATE AGENT ──
-async function createAgent() {
+async function clearHistory(){
+  if(!confirm('Clear all task history?'))return;
+  await fetch('/api/tasks',{method:'DELETE'});
+  loadHistory();
+}
+
+// ── CREATE ──
+async function createAgent(){
   const name=document.getElementById('cName').value.trim();
   const model=document.getElementById('cModel').value;
   const soul=document.getElementById('cSoul').value.trim();
-  const btn=document.getElementById('createBtn');
-  const st=document.getElementById('createStatus');
-  if (!name||!soul) return showFS(st,'Name and SOUL are required.','err');
-  btn.disabled=true; btn.textContent='Creating…'; st.style.display='none';
-  try {
+  const btn=document.getElementById('cBtn'),st=document.getElementById('cStatus');
+  if(!name||!soul)return showFS(st,'Name and SOUL required.','ferr');
+  btn.disabled=true;btn.textContent='Creating…';st.style.display='none';
+  try{
     const res=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model,soul})});
     const d=await res.json();
-    showFS(st,`${res.ok?'✅':'⚠️'} ${d.message||d.error}\n\nCLI: ${d.cliResult?.stdout||d.cliResult?.error||''}\n\nNow click the agent in the sidebar.`,res.ok?'ok':'warn');
-    if (res.ok){document.getElementById('cName').value='';document.getElementById('cSoul').value='';await loadAgents();}
-  } catch { showFS(st,'❌ Network error','err'); }
-  finally { btn.disabled=false; btn.textContent='Create & Register Agent'; }
+    showFS(st,`${res.ok?'✅':'⚠️'} ${d.message||d.error}\n\nCLI: ${d.cliResult?.stdout||d.cliResult?.error||''}`,res.ok?'fok':'fwarn');
+    if(res.ok){document.getElementById('cName').value='';document.getElementById('cSoul').value='';await loadAgents();}
+  }catch{showFS(st,'❌ Network error','ferr');}
+  finally{btn.disabled=false;btn.textContent='Create & Register Agent';}
 }
 
 // ── MANAGE ──
-function renderManage() {
+function renderManage(){
   const el=document.getElementById('manageList');
-  if (!agents.length) { el.innerHTML='<div style="color:var(--muted);font-size:.8rem">No agents found.</div>'; return; }
-  el.innerHTML = agents.map(a => {
-    const [fg,bg]=color(a.id);
+  if(!agents.length){el.innerHTML='<div style="color:var(--muted);font-size:.78rem">No agents</div>';return;}
+  el.innerHTML=agents.map(a=>{
+    const[fg,bg]=clr(a.id);
     return `<div class="amc">
-      <div class="av" style="background:${bg};color:${fg};width:28px;height:28px;border-radius:6px;font-size:.8rem">${init(a.name)}</div>
+      <div class="av" style="background:${bg};color:${fg};width:28px;height:28px;border-radius:5px;font-size:.78rem">${init(a.name)}</div>
       <div class="amc-info">
-        <div class="amc-name">${a.name} <span style="font-weight:400;color:var(--muted);font-size:.67rem">${a.id}</span></div>
-        <div class="amc-id">${a.model} · ${a.inConfig&&a.workspaceOk?'<span style="color:var(--green)">config ✓</span>':'<span style="color:var(--red)">config ✗</span>'} · ${a.hasSoul?'<span style="color:var(--green)">soul ✓</span>':'<span style="color:var(--red)">soul ✗</span>'}</div>
+        <div class="amc-name">${a.name} <span style="color:var(--muted);font-weight:400;font-size:.65rem">${a.id}</span></div>
+        <div class="amc-sub">${a.model} · ${a.inConfig&&a.workspaceOk?'<span style="color:var(--green)">cfg✓</span>':'<span style="color:var(--red)">cfg✗</span>'} · ${a.hasSoul?'<span style="color:var(--green)">soul✓</span>':'<span style="color:var(--red)">soul✗</span>'}</div>
       </div>
-      <div class="amc-actions">
-        <button class="abtn abtn-yellow" onclick="openSoul('${a.id}','${a.name}')">Edit Soul</button>
-        <a class="abtn abtn-blue" href="http://127.0.0.1:18789/chat?session=agent:${a.id}:main" target="_blank">Open Chat ↗</a>
+      <div class="amca">
+        <button class="abtn abtn-y" onclick="openSoul('${a.id}','${a.name}')">Soul</button>
+        <a class="abtn abtn-b" href="http://127.0.0.1:18789/chat?session=agent:${a.id}:main" target="_blank">Chat↗</a>
       </div>
     </div>`;
   }).join('');
 }
 
-async function fixAll() {
-  const st=document.getElementById('fixStatus');
-  showFS(st,'Fixing all configs… please wait.','warn');
-  try {
-    const d=await fetch('/api/fix-all',{method:'POST'}).then(r=>r.json());
-    showFS(st,`✅ ${d.message}\n\nCLI:\n${d.cli}`,'ok');
-    await loadAgents();
-  } catch { showFS(st,'❌ Error','err'); }
+async function fixAll(){
+  const st=document.getElementById('fixSt');
+  showFS(st,'Fixing…','fwarn');
+  try{const d=await fetch('/api/fix-all',{method:'POST'}).then(r=>r.json());showFS(st,`✅ ${d.message}\n${d.cli}`,'fok');await loadAgents();}
+  catch{showFS(st,'❌ Error','ferr');}
 }
 
-function openSoul(id,name) {
-  soulAgentId=id;
-  document.getElementById('soulBoxName').textContent=name;
-  document.getElementById('soulText').value='';
-  document.getElementById('soulStatus').style.display='none';
+function openSoul(id,name){
+  soulId=id;document.getElementById('soulBoxName').textContent=name;
+  document.getElementById('soulTxt').value='';document.getElementById('soulSt').style.display='none';
   document.getElementById('soulBox').style.display='block';
-  document.getElementById('soulText').focus();
+  document.getElementById('soulTxt').focus();
   document.getElementById('soulBox').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-function closeSoul() { document.getElementById('soulBox').style.display='none'; soulAgentId=null; }
-
-async function submitSoul() {
-  const soul=document.getElementById('soulText').value.trim();
-  const writeGlobal=document.getElementById('globalSoul').checked;
-  const st=document.getElementById('soulStatus');
-  if (!soul) return showFS(st,'Paste SOUL.md content first.','err');
-  try {
-    const res=await fetch(`/api/agents/${encodeURIComponent(soulAgentId)}/soul`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul,writeGlobal})});
+function closeSoul(){document.getElementById('soulBox').style.display='none';soulId=null;}
+async function submitSoul(){
+  const soul=document.getElementById('soulTxt').value.trim();
+  const wg=document.getElementById('globalSoul').checked;
+  const st=document.getElementById('soulSt');
+  if(!soul)return showFS(st,'Paste content first.','ferr');
+  try{
+    const res=await fetch(`/api/agents/${encodeURIComponent(soulId)}/soul`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul,writeGlobal:wg})});
     const d=await res.json();
-    showFS(st,res.ok?`✅ ${d.message}`:`❌ ${d.error}`,res.ok?'ok':'err');
-    if (res.ok) setTimeout(closeSoul,1500);
-  } catch { showFS(st,'❌ Network error','err'); }
+    showFS(st,res.ok?`✅ ${d.message}`:`❌ ${d.error}`,res.ok?'fok':'ferr');
+    if(res.ok)setTimeout(closeSoul,1500);
+  }catch{showFS(st,'❌ Network error','ferr');}
 }
 
-function showFS(el,msg,type) { el.textContent=msg; el.className=`fstatus fs-${type}`; el.style.display='block'; }
+function showFS(el,msg,cls){el.textContent=msg;el.className=`fst ${cls}`;el.style.display='block';}
+
+// ── NETWORK MODAL ──
+async function openNetModal(){
+  document.getElementById('netModal').classList.add('open');
+  const nc=document.getElementById('netContent');
+  nc.innerHTML='<div style="color:var(--muted);font-size:.78rem">Loading…</div>';
+  try{
+    const d=await fetch('/api/network').then(r=>r.json());
+    nc.innerHTML=`
+      <div class="net-card">
+        <h3>Access URLs</h3>
+        ${d.urls.length?d.urls.map(url=>`
+          <div class="url-row">
+            <span class="url-text">${url}</span>
+            <button class="copy-btn" onclick="copyUrl('${url}')">Copy</button>
+          </div>
+        `).join(''):'<div style="color:var(--muted);font-size:.75rem">No network interfaces found. Make sure you\'re connected to Wi-Fi.</div>'}
+        <div class="url-row">
+          <span class="url-text">http://localhost:${d.port} (this device)</span>
+          <button class="copy-btn" onclick="copyUrl('http://localhost:${d.port}')">Copy</button>
+        </div>
+      </div>
+      <div class="net-tip">
+        <strong>📱 Open on your phone or another computer:</strong><br>
+        Make sure both devices are on the <strong>same Wi-Fi network</strong>, then open the URL above in any browser.<br><br>
+        <strong>Hostname:</strong> ${d.hostname}
+      </div>
+      <div class="net-tip" style="margin-top:.5rem;background:rgba(227,179,65,.05);border-color:rgba(227,179,65,.2)">
+        <strong>🔒 Security note:</strong> This portal is accessible to anyone on your local network. Do not use on public Wi-Fi.
+      </div>`;
+  }catch{nc.innerHTML='<div style="color:var(--red);font-size:.78rem">Failed to load network info</div>';}
+}
+function closeNetModal(){document.getElementById('netModal').classList.remove('open');}
+document.getElementById('netModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeNetModal();});
+
+function copyUrl(url){
+  navigator.clipboard.writeText(url).then(()=>{
+    const btn=event.target; btn.textContent='Copied!';
+    setTimeout(()=>btn.textContent='Copy',2000);
+  });
+}
+
+// ── REAL-TIME EVENTS (cross-device task updates) ──
+function connectSSE(){
+  const es=new EventSource('/api/events');
+  es.onmessage=e=>{
+    try{
+      const d=JSON.parse(e.data);
+      if(d.type==='task_saved'&&document.getElementById('panel-history').classList.contains('active')){
+        loadHistory(); // auto-refresh history on all connected devices
+      }
+    }catch{}
+  };
+  es.onerror=()=>setTimeout(connectSSE,5000); // auto-reconnect
+}
 
 // ── INIT ──
 (async()=>{
   await checkGateway();
   await loadAgents();
-  setInterval(checkGateway, 30000);
+  connectSSE();
+  setInterval(checkGateway,30000);
 })();
 </script>
 </body>
