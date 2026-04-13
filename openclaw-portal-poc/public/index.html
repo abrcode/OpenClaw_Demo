@@ -44,6 +44,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 ::-webkit-scrollbar-thumb:hover{background:rgba(99,102,241,.4)}
 .shell{display:flex;height:100vh;overflow:hidden}
 
+/* ── SIDEBAR ── */
 .sidebar{
   width:var(--sidebar-w);min-width:var(--sidebar-w);max-width:var(--sidebar-w);
   height:100vh;flex-shrink:0;
@@ -67,18 +68,22 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .sb-wordmark{font-size:.9rem;font-weight:700;color:var(--text);letter-spacing:-.025em}
 .sb-wordmark span{color:var(--indigo)}
 .sb-plan{margin-left:auto;font-size:.58rem;font-weight:700;background:var(--accent-l);color:var(--accent-d);padding:2px 7px;border-radius:20px;letter-spacing:.04em}
+
 .gw-pill{
   margin:.7rem 1rem;padding:.42rem .75rem;
   background:var(--surface2);border:1px solid var(--border);
   border-radius:var(--r);display:flex;align-items:center;gap:.45rem;flex-shrink:0;
 }
+.gw-pill.on{background:rgba(16,185,129,.05);border-color:rgba(16,185,129,.2)}
+.gw-pill.off{background:rgba(244,63,94,.05);border-color:rgba(244,63,94,.2)}
 .gw-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:all .3s}
 .gw-dot.on{background:var(--emerald);box-shadow:0 0 0 3px rgba(16,185,129,.15)}
 .gw-dot.off{background:var(--rose);box-shadow:0 0 0 3px rgba(244,63,94,.12)}
 .gw-dot.chk{background:var(--amber);animation:gpulse 1s infinite}
 @keyframes gpulse{0%,100%{box-shadow:0 0 0 2px rgba(245,158,11,.3)}50%{box-shadow:0 0 0 5px rgba(245,158,11,.05)}}
-.gw-lbl{font-size:.7rem;font-weight:500;color:var(--text2);flex:1}
-.gw-sts{font-size:.63rem;color:var(--text3)}
+.gw-lbl{font-size:.7rem;font-weight:500;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gw-sts{font-size:.63rem;color:var(--text3);flex-shrink:0}
+
 .sb-nav{padding:.2rem .75rem 0;flex-shrink:0}
 .nav-glbl{font-size:.63rem;font-weight:700;color:var(--text3);padding:.65rem .25rem .22rem;letter-spacing:.07em;text-transform:uppercase}
 .nav-item{
@@ -98,6 +103,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .nav-item.active .ni-ico{background:var(--accent);color:#fff}
 .ni-lbl{flex:1}
 .ni-badge{font-size:.58rem;font-weight:700;background:var(--indigo);color:#fff;border-radius:20px;padding:1px 6px;min-width:18px;text-align:center;display:none}
+
 .agents-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;padding-top:.2rem}
 .agents-hdr{
   display:flex;align-items:center;justify-content:space-between;
@@ -126,6 +132,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .agent-row.selected .ar-nm{color:var(--accent-d)}
 .ar-mdl{font-size:.6rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ar-ping{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
 .sb-foot{padding:.7rem 1rem;border-top:1px solid var(--border);flex-shrink:0}
 .sb-new{
   width:100%;padding:.5rem;border-radius:var(--r);
@@ -135,7 +142,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 }
 .sb-new:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
 
-/* TOPBAR */
+/* ── TOPBAR (mobile) ── */
 .topbar{display:none;height:52px;background:var(--surface);border-bottom:1px solid var(--border);padding:0 1rem;align-items:center;gap:.75rem;flex-shrink:0;box-shadow:0 1px 8px rgba(99,102,241,.07)}
 .top-brand{font-size:.88rem;font-weight:700;color:var(--text);letter-spacing:-.025em}
 .top-brand span{color:var(--indigo)}
@@ -143,10 +150,10 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .top-gw{display:flex;align-items:center;gap:.35rem;margin-left:auto;font-size:.68rem;color:var(--text3)}
 .top-net{background:var(--accent-l);border:none;color:var(--accent-d);border-radius:8px;padding:.32rem .65rem;font-size:.68rem;font-weight:600;cursor:pointer;font-family:var(--sans)}
 
-/* MAIN */
+/* ── MAIN ── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;background:var(--bg)}
 .tab-bar{height:46px;background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.25rem;display:flex;align-items:center;gap:0;flex-shrink:0}
-.tab{height:100%;padding:0 .85rem;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:.73rem;font-weight:500;font-family:var(--sans);transition:all .15s;display:flex;align-items:center;white-space:nowrap;border-bottom:2px solid transparent;position:relative}
+.tab{height:100%;padding:0 .85rem;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:.73rem;font-weight:500;font-family:var(--sans);transition:all .15s;display:flex;align-items:center;white-space:nowrap;border-bottom:2px solid transparent}
 .tab:hover{color:var(--text2)}
 .tab.active{color:var(--accent-d);border-bottom-color:var(--accent)}
 .tab-sp{flex:1}
@@ -158,7 +165,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .panel.active{display:flex}
 .pscroll{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
 
-/* PAGE HEADER */
+/* ── PAGE HEADER ── */
 .pg-hdr{padding:.85rem 1.5rem .6rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surface)}
 .pg-title{font-size:1rem;font-weight:700;color:var(--text);letter-spacing:-.025em}
 .pg-sub{font-size:.7rem;color:var(--text3);margin-top:1px}
@@ -168,7 +175,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .p-btn.pri{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(99,102,241,.28)}
 .p-btn.pri:hover{background:var(--accent-d)}
 
-/* STATS */
+/* ── STATS ── */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:.75rem;margin-bottom:1.25rem}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:.88rem 1rem;box-shadow:var(--sh);transition:box-shadow .2s,transform .2s;cursor:default}
 .stat-card:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
@@ -179,56 +186,44 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .sc-lbl{font-size:.67rem;color:var(--text3);font-weight:500}
 .sc-bar{height:3px;border-radius:2px;margin-top:.72rem;background:var(--surface3);overflow:hidden}
 .sc-fill{height:100%;border-radius:2px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.sc-vi .sc-ico{background:#f3f0ff;color:var(--violet)}.sc-vi .sc-v{color:var(--violet)}.sc-vi .sc-badge{background:#f3f0ff;color:var(--violet)}.sc-vi .sc-fill{background:linear-gradient(90deg,var(--violet),var(--indigo2))}
+.sc-in .sc-ico{background:var(--accent-l);color:var(--accent-d)}.sc-in .sc-v{color:var(--accent-d)}.sc-in .sc-badge{background:var(--accent-l);color:var(--accent-d)}.sc-in .sc-fill{background:linear-gradient(90deg,var(--accent),var(--sky))}
+.sc-sk .sc-ico{background:#e0f2fe;color:#0369a1}.sc-sk .sc-v{color:#0369a1}.sc-sk .sc-badge{background:#e0f2fe;color:#0369a1}.sc-sk .sc-fill{background:linear-gradient(90deg,var(--sky),var(--blue))}
+.sc-em .sc-ico{background:#ecfdf5;color:#065f46}.sc-em .sc-v{color:#065f46}.sc-em .sc-badge{background:#ecfdf5;color:#065f46}.sc-em .sc-fill{background:linear-gradient(90deg,var(--emerald),#34d399)}
 
-.sc-vi .sc-ico{background:#f3f0ff;color:var(--violet)}
-.sc-vi .sc-v{color:var(--violet)}
-.sc-vi .sc-badge{background:#f3f0ff;color:var(--violet)}
-.sc-vi .sc-fill{background:linear-gradient(90deg,var(--violet),var(--indigo2))}
-.sc-in .sc-ico{background:var(--accent-l);color:var(--accent-d)}
-.sc-in .sc-v{color:var(--accent-d)}
-.sc-in .sc-badge{background:var(--accent-l);color:var(--accent-d)}
-.sc-in .sc-fill{background:linear-gradient(90deg,var(--accent),var(--sky))}
-.sc-sk .sc-ico{background:#e0f2fe;color:#0369a1}
-.sc-sk .sc-v{color:#0369a1}
-.sc-sk .sc-badge{background:#e0f2fe;color:#0369a1}
-.sc-sk .sc-fill{background:linear-gradient(90deg,var(--sky),var(--blue))}
-.sc-em .sc-ico{background:#ecfdf5;color:#065f46}
-.sc-em .sc-v{color:#065f46}
-.sc-em .sc-badge{background:#ecfdf5;color:#065f46}
-.sc-em .sc-fill{background:linear-gradient(90deg,var(--emerald),#34d399)}
-
-/* QUICK ACTIONS */
+/* ── QUICK ACTIONS ── */
 .qa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:.65rem;margin-bottom:1.25rem}
-.qa-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:.82rem .9rem;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;gap:.48rem;box-shadow:var(--sh)}
+.qa-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:.82rem .9rem;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;gap:.48rem;box-shadow:var(--sh);text-align:left;font-family:var(--sans)}
 .qa-card:hover{border-color:rgba(99,102,241,.3);box-shadow:var(--sh2);transform:translateY(-1px)}
 .qa-ico{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--surface3);flex-shrink:0}
 .qa-lbl{font-size:.74rem;font-weight:600;color:var(--text)}
 .qa-sub{font-size:.64rem;color:var(--text3)}
 
-/* SEC HEADER */
+/* ── SEC HEADER ── */
 .sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:.62rem}
 .sec-ttl{font-size:.77rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
-.sec-lnk{font-size:.68rem;font-weight:600;color:var(--accent);background:transparent;border:none;cursor:pointer;font-family:var(--sans);transition:color .15s;display:flex;align-items:center;gap:.2rem}
+.sec-lnk{font-size:.68rem;font-weight:600;color:var(--accent);background:transparent;border:none;cursor:pointer;font-family:var(--sans);transition:color .15s}
 .sec-lnk:hover{color:var(--accent-d)}
 
-/* RECENT */
+/* ── RECENT ── */
 .recent-list{display:flex;flex-direction:column;gap:.5rem}
 .recent-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:.72rem 1rem;cursor:pointer;transition:all .15s;box-shadow:var(--sh)}
 .recent-card:hover{border-color:var(--border2);box-shadow:var(--sh2)}
 .rc-t{display:flex;align-items:center;gap:.45rem;margin-bottom:.32rem}
 .rc-av{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.58rem;font-weight:700;flex-shrink:0}
 .rc-nm{font-size:.7rem;font-weight:600}
+.rc-del{font-size:.58rem;color:var(--pink);background:rgba(236,72,153,.08);padding:1px 6px;border-radius:20px;font-weight:600}
 .rc-ts{margin-left:auto;font-size:.6rem;color:var(--text3)}
 .rc-task{font-size:.72rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2rem}
 .rc-resp{font-size:.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* AGENT CHIPS */
+/* ── AGENT CHIPS ── */
 .agent-chips{display:flex;flex-wrap:wrap;gap:.48rem}
 .agent-chip{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:.36rem .78rem;cursor:pointer;transition:all .15s;font-size:.7rem;font-weight:500;display:flex;align-items:center;gap:.38rem;box-shadow:var(--sh)}
 .agent-chip:hover{border-color:rgba(99,102,241,.3);box-shadow:var(--sh2)}
 .acp-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 
-/* TASK PANEL */
+/* ── TASK PANEL ── */
 .task-layout{display:grid;grid-template-columns:1fr 258px;height:100%;overflow:hidden;min-height:0}
 .task-main{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);min-height:0}
 .task-rt{background:var(--surface2);display:flex;flex-direction:column;overflow:hidden;min-height:0}
@@ -287,6 +282,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .stb-led.done{background:var(--emerald);box-shadow:0 0 0 2px rgba(16,185,129,.2)}
 .stb-led.err{background:var(--rose)}
 .stb-txt{flex:1;font-weight:500}
+.stb-chars{font-size:.63rem;color:var(--text3)}
 
 .inp-sec{padding:.72rem 1rem .82rem;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
 .inp-lbl{font-size:.67rem;font-weight:500;color:var(--text3);margin-bottom:.38rem;display:flex;align-items:center;gap:.48rem}
@@ -305,20 +301,19 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .btn-send:hover{background:var(--accent-d)}
 .btn-send:disabled{background:var(--surface3);color:var(--text3);cursor:not-allowed;box-shadow:none}
 
+/* ── TASK RIGHT PANEL ── */
 .tr-sec{padding:.72rem .88rem;border-bottom:1px solid var(--border);flex-shrink:0}
 .tr-ttl{font-size:.63rem;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.45rem}
 .tr-row{display:flex;justify-content:space-between;align-items:center;padding:.2rem 0;font-size:.7rem}
 .tr-row:not(:last-child){border-bottom:1px solid var(--border)}
-.tr-k{color:var(--text3)}
-.tr-v{font-weight:600;color:var(--text)}
+.tr-k{color:var(--text3)}.tr-v{font-weight:600;color:var(--text)}
 .tr-v.v{color:var(--violet)}.tr-v.i{color:var(--accent-d)}.tr-v.s{color:#0369a1}
 
 .qd-list{display:flex;flex-direction:column;gap:.18rem}
 .qd-item{display:flex;align-items:center;gap:.45rem;padding:.36rem .48rem;border-radius:var(--r);cursor:pointer;transition:all .15s;font-size:.7rem;font-weight:500;color:var(--text2);border:none;background:transparent;font-family:var(--sans);width:100%;text-align:left}
 .qd-item:hover{background:var(--accent-l);color:var(--accent-d)}
 .qd-av{width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.57rem;font-weight:700;flex-shrink:0}
-.qd-nm{flex:1}
-.qd-m{font-size:.58rem;color:var(--text3)}
+.qd-nm{flex:1}.qd-m{font-size:.58rem;color:var(--text3)}
 
 .dbg-tog{display:flex;align-items:center;justify-content:space-between;padding:.42rem .88rem;font-size:.67rem;font-weight:500;color:var(--text3);cursor:pointer;border-top:1px solid var(--border);transition:color .15s;flex-shrink:0}
 .dbg-tog:hover{color:var(--text2)}
@@ -327,13 +322,14 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .dl{padding:1px 0;word-break:break-all}
 .dl.ok{color:var(--emerald)}.dl.err{color:var(--rose)}.dl.info{color:var(--blue)}
 
-/* HISTORY */
+/* ── HISTORY ── */
 .hist-exp{display:flex;gap:.4rem;padding:.5rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);align-items:center}
 .heb{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);padding:.3rem .62rem;font-size:.67rem;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all .15s}
 .heb:hover{border-color:var(--border2);color:var(--text)}
 .heb.danger:hover{border-color:var(--rose);color:var(--rose)}
-.hist-top{padding:.55rem 1rem;border-bottom:1px solid var(--border);display:flex;gap:.4rem;flex-shrink:0;align-items:center;background:var(--surface)}
-.hist-srch{flex:1;background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--r);padding:.32rem .72rem;font-size:.73rem;color:var(--text);font-family:var(--sans);outline:none;transition:border-color .2s,box-shadow .2s}
+.hist-cnt{margin-left:auto;font-size:.63rem;color:var(--text3)}
+.hist-top{padding:.55rem 1rem;border-bottom:1px solid var(--border);display:flex;gap:.4rem;flex-shrink:0;align-items:center;background:var(--surface);flex-wrap:wrap}
+.hist-srch{flex:1;min-width:140px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--r);padding:.32rem .72rem;font-size:.73rem;color:var(--text);font-family:var(--sans);outline:none;transition:border-color .2s,box-shadow .2s}
 .hist-srch:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.1)}
 .hist-srch::placeholder{color:var(--text3)}
 .hf-btn{background:var(--surface2);border:1.5px solid var(--border2);color:var(--text3);border-radius:var(--r);padding:.3rem .62rem;font-size:.67rem;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all .15s;white-space:nowrap}
@@ -345,18 +341,19 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .hc-t{display:flex;align-items:center;gap:.45rem;margin-bottom:.28rem}
 .hc-av{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.57rem;font-weight:700;flex-shrink:0}
 .hc-nm{font-size:.7rem;font-weight:600}
-.hc-fr{font-size:.62rem;color:var(--pink)}
+.hc-fr{font-size:.62rem;color:var(--pink);background:rgba(236,72,153,.08);padding:1px 6px;border-radius:20px;font-weight:600}
 .hc-ts{margin-left:auto;font-size:.6rem;color:var(--text3)}
 .hc-task{font-size:.7rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.18rem}
 .hc-resp{font-size:.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hist-empty{text-align:center;padding:3rem;color:var(--text3);font-size:.73rem;line-height:2.2}
 
-/* CREATE */
-.create-layout{display:grid;grid-template-columns:1fr 260px;height:100%;overflow:hidden;min-height:0}
+/* ── AGENT STUDIO / CREATE ── */
+.create-layout{display:grid;grid-template-columns:1fr 268px;height:100%;overflow:hidden;min-height:0}
 .create-form{overflow-y:auto;padding:1rem 1.25rem}
 .create-prev{background:var(--surface2);border-left:1px solid var(--border);padding:1rem;overflow-y:auto}
 .fg{margin-bottom:.88rem}
 .fl{display:block;font-size:.7rem;font-weight:600;color:var(--text2);margin-bottom:.38rem}
+.fl-req{color:var(--rose);margin-left:2px}
 .fi,.fs,.ft{width:100%;background:var(--surface);border:1.5px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:.77rem;padding:.5rem .75rem;outline:none;transition:border-color .2s,box-shadow .2s}
 .fi:focus,.fs:focus,.ft:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.1)}
 .ft{resize:vertical;min-height:135px;line-height:1.6}
@@ -368,26 +365,41 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .model-opt input{display:none}
 .model-radio{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--text3);flex-shrink:0;transition:all .15s}
 .model-opt.sel .model-radio{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 2px rgba(99,102,241,.18)}
-.model-nm{font-size:.7rem;font-weight:600;flex:1;color:var(--text)}
-.model-pv{font-size:.58rem;color:var(--text3)}
+.model-nm{font-size:.7rem;font-weight:600;flex:1;color:var(--text)}.model-pv{font-size:.58rem;color:var(--text3)}
 .soul-tpls{display:flex;flex-wrap:wrap;gap:.28rem;margin-bottom:.48rem}
 .soul-tpl{background:var(--surface2);border:1.5px solid var(--border2);border-radius:20px;padding:.26rem .62rem;cursor:pointer;font-size:.67rem;font-weight:500;color:var(--text2);font-family:var(--sans);transition:all .15s}
 .soul-tpl:hover{border-color:var(--accent);color:var(--accent-d);background:var(--accent-l)}
+
+/* Studio tabs within create panel */
+.studio-tabs{display:flex;background:var(--surface3);border:1px solid var(--border);border-radius:var(--r);padding:3px;gap:2px;margin-bottom:.88rem;flex-wrap:wrap}
+.stab{padding:.3rem .65rem;border-radius:7px;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:.67rem;font-weight:500;font-family:var(--sans);transition:all .15s;white-space:nowrap}
+.stab.active{background:var(--surface);color:var(--accent-d);font-weight:600;box-shadow:0 1px 4px rgba(99,102,241,.1)}
+.stab-pane{display:none}.stab-pane.active{display:block}
+
 .btn-create{background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:.58rem 1.2rem;font-size:.77rem;font-weight:600;font-family:var(--sans);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.38rem;margin-top:.88rem;box-shadow:0 2px 10px rgba(99,102,241,.32)}
 .btn-create:hover{background:var(--accent-d);box-shadow:0 4px 16px rgba(99,102,241,.42)}
 .btn-create:disabled{background:var(--surface3);color:var(--text3);cursor:not-allowed;box-shadow:none}
+
 .prev-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:.72rem .85rem;box-shadow:var(--sh)}
 .pv-c{font-size:.63rem;color:var(--text3);margin-bottom:.55rem;font-style:italic}
 .pv-r{display:flex;align-items:baseline;gap:.32rem;margin-bottom:.2rem;font-size:.7rem}
 .pv-k{color:var(--accent-d);font-weight:600}.pv-eq{color:var(--text3)}.pv-v{color:var(--text)}
 .pv-v.m{color:#0369a1}.pv-v.f{color:#b45309}
 .pv-soul{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.52rem .7rem;margin-top:.62rem;font-size:.66rem;color:var(--text2);white-space:pre-wrap;max-height:195px;overflow-y:auto;line-height:1.6}
+
+/* Preview file status list */
+.pv-files{display:flex;flex-direction:column;gap:.32rem;margin-top:.62rem}
+.pvf-row{display:flex;align-items:center;gap:.42rem;font-size:.67rem;padding:.3rem .52rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)}
+.pvf-nm{flex:1;color:var(--text2);font-weight:500}
+.pvf-ok{font-size:.58rem;font-weight:700;padding:1px 7px;border-radius:20px;background:#ecfdf5;color:#065f46}
+.pvf-miss{font-size:.58rem;font-weight:700;padding:1px 7px;border-radius:20px;background:var(--surface3);color:var(--text3)}
+
 .fb{padding:.52rem .75rem;border-radius:var(--r);font-size:.7rem;display:none;margin-top:.58rem;font-weight:500}
 .fb-ok{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
 .fb-err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
 .fb-warn{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
 
-/* MANAGE */
+/* ── MANAGE ── */
 .manage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem}
 .manage-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:.88rem 1rem;transition:all .18s;box-shadow:var(--sh)}
 .manage-card:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
@@ -397,23 +409,29 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .mc-id{font-size:.6rem;color:var(--text3);margin-top:1px}
 .mc-badges{display:flex;gap:.28rem;flex-wrap:wrap;margin-bottom:.68rem}
 .mc-bdg{font-size:.6rem;font-weight:600;padding:3px 8px;border-radius:20px}
-.mb-ok{background:#ecfdf5;color:#065f46}.mb-err{background:#fef2f2;color:#991b1b}.mb-info{background:var(--accent-l);color:var(--accent-d)}
+.mb-ok{background:#ecfdf5;color:#065f46}.mb-err{background:#fef2f2;color:#991b1b}.mb-info{background:var(--accent-l);color:var(--accent-d)}.mb-warn{background:#fffbeb;color:#92400e}
+.mc-files{display:grid;grid-template-columns:repeat(3,1fr);gap:.22rem;margin-bottom:.62rem}
+.mcf{font-size:.58rem;font-weight:600;padding:2px 5px;border-radius:6px;text-align:center}
+.mcf-ok{background:#ecfdf5;color:#065f46}.mcf-miss{background:var(--surface3);color:var(--text3)}
 .mc-acts{display:flex;gap:.32rem;flex-wrap:wrap}
 .mc-btn{font-size:.67rem;font-weight:500;padding:.32rem .7rem;border-radius:var(--r);cursor:pointer;font-family:var(--sans);transition:all .15s;border:none;text-decoration:none;display:inline-flex;align-items:center;gap:.22rem}
 .mc-pri{background:var(--accent);color:#fff;box-shadow:0 1px 4px rgba(99,102,241,.22)}
 .mc-pri:hover{background:var(--accent-d)}
 .mc-gh{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
 .mc-gh:hover{border-color:var(--border2);color:var(--text)}
+.mc-danger{background:transparent;color:var(--rose);border:1px solid rgba(244,63,94,.2)}
+.mc-danger:hover{background:rgba(244,63,94,.06)}
 .mbar{display:flex;gap:.48rem;margin-bottom:.85rem;align-items:center;flex-wrap:wrap}
 .mb-btn{background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);padding:.38rem .8rem;font-size:.7rem;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all .15s;display:flex;align-items:center;gap:.32rem;box-shadow:var(--sh)}
 .mb-btn:hover{border-color:var(--border2);color:var(--text)}
 .mb-btn.go{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(99,102,241,.28)}
 .mb-btn.go:hover{background:var(--accent-d)}
 
-/* MODALS */
+/* ── MODALS ── */
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(8px);z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
 .modal-bg.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:1.2rem 1.4rem;width:100%;max-width:495px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(15,23,42,.18),0 4px 16px rgba(99,102,241,.1);animation:mdi .22s cubic-bezier(.34,1.56,.64,1)}
+.modal.modal-lg{max-width:680px}
 @keyframes mdi{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:none}}
 .modal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:.95rem;padding-bottom:.72rem;border-bottom:1px solid var(--border)}
 .modal-ttl{font-size:.88rem;font-weight:700;color:var(--text);letter-spacing:-.02em}
@@ -427,7 +445,13 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .net-op:hover{background:var(--accent);color:#fff}
 .net-warn{font-size:.67rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--r);padding:.52rem .72rem;margin-top:.72rem}
 
-/* MOBILE */
+/* Workspace modal tab bar */
+.ws-tabs{display:flex;flex-wrap:wrap;gap:.28rem;margin-bottom:.75rem}
+.ws-tab{background:var(--surface2);border:1.5px solid var(--border2);border-radius:20px;padding:.26rem .62rem;cursor:pointer;font-size:.67rem;font-weight:500;color:var(--text2);font-family:var(--sans);transition:all .15s}
+.ws-tab.act{background:var(--accent-l);border-color:rgba(99,102,241,.35);color:var(--accent-d)}
+.ws-desc{font-size:.67rem;color:var(--text3);margin-bottom:.52rem;padding:.42rem .62rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);line-height:1.55}
+
+/* ── MOBILE ── */
 .sb-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.4);backdrop-filter:blur(4px);z-index:98}
 .sb-overlay.show{display:block}
 @media(max-width:768px){
@@ -450,6 +474,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 <body>
 <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
 
+<!-- MOBILE TOPBAR -->
 <div class="topbar" id="topbar">
   <button class="menu-btn" onclick="toggleSidebar()">&#9776;</button>
   <span class="top-brand">nexus<span>.ai</span></span>
@@ -470,7 +495,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
     <span class="sb-plan">PRO</span>
   </div>
 
-  <div class="gw-pill">
+  <div class="gw-pill" id="gwPill">
     <div class="gw-dot chk" id="gwDot"></div>
     <span class="gw-lbl" id="gwLbl">Checking gateway...</span>
     <span class="gw-sts" id="gwSts"></span>
@@ -489,8 +514,8 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
       <span class="ni-badge" id="histBadge"></span>
     </button>
     <div class="nav-glbl" style="margin-top:.2rem">Agents</div>
-    <button class="nav-item" id="nav-create" onclick="showPanel('create')">
-      <div class="ni-ico">+</div><span class="ni-lbl">New Agent</span>
+    <button class="nav-item" id="nav-studio" onclick="showPanel('studio')">
+      <div class="ni-ico">&#x2795;</div><span class="ni-lbl">Agent Studio</span>
     </button>
     <button class="nav-item" id="nav-manage" onclick="showPanel('manage')">
       <div class="ni-ico">&#x2699;</div><span class="ni-lbl">Manage</span>
@@ -503,7 +528,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
   <div class="agents-wrap">
     <div class="agents-hdr">
       <span>Active Agents</span>
-      <button class="add-ico" onclick="showPanel('create')">+</button>
+      <button class="add-ico" onclick="showPanel('studio')" title="New agent">+</button>
     </div>
     <div class="sb-agents" id="sbAgents">
       <div style="font-size:.7rem;color:var(--text3);padding:.38rem .28rem">Loading...</div>
@@ -511,7 +536,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
   </div>
 
   <div class="sb-foot">
-    <button class="sb-new" onclick="showPanel('create')">
+    <button class="sb-new" onclick="showPanel('studio')">
       <span style="font-size:15px;color:var(--accent)">+</span>
       <span>New Agent</span>
     </button>
@@ -523,7 +548,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
     <button class="tab active" id="htab-dashboard" onclick="showPanel('dashboard')">Dashboard</button>
     <button class="tab" id="htab-task" onclick="showPanel('task')">Assign Task</button>
     <button class="tab" id="htab-history" onclick="showPanel('history')">History</button>
-    <button class="tab" id="htab-create" onclick="showPanel('create')">New Agent</button>
+    <button class="tab" id="htab-studio" onclick="showPanel('studio')">Agent Studio</button>
     <button class="tab" id="htab-manage" onclick="showPanel('manage')">Manage</button>
     <div class="tab-sp"></div>
     <button class="btn-net" onclick="openNetModal()">&#x1F4E1; Network</button>
@@ -531,13 +556,13 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 
   <div class="content">
 
-    <!-- DASHBOARD -->
+    <!-- ══════ DASHBOARD ══════ -->
     <div class="panel active" id="panel-dashboard">
       <div class="pg-hdr">
         <div><div class="pg-title">Overview</div><div class="pg-sub">nexus.ai agent workspace</div></div>
         <div class="pg-acts">
           <button class="p-btn" onclick="showPanel('manage')">Manage agents</button>
-          <button class="p-btn pri" onclick="showPanel('create')">+ New agent</button>
+          <button class="p-btn pri" onclick="showPanel('studio')">+ New agent</button>
         </div>
       </div>
       <div class="pscroll">
@@ -565,18 +590,12 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 
         <div class="sec-hd"><div class="sec-ttl">Quick actions</div></div>
         <div class="qa-grid" style="margin-bottom:1.28rem">
-          <button class="qa-card" onclick="showPanel('task')">
-            <div class="qa-ico">&#x25B6;</div><div class="qa-lbl">Assign task</div><div class="qa-sub">Send work to an agent</div>
-          </button>
-          <button class="qa-card" onclick="showPanel('create')">
-            <div class="qa-ico">&#x2795;</div><div class="qa-lbl">New agent</div><div class="qa-sub">Create &amp; configure</div>
-          </button>
-          <button class="qa-card" onclick="showPanel('history')">
-            <div class="qa-ico">&#x1F4CB;</div><div class="qa-lbl">View history</div><div class="qa-sub">Past tasks &amp; responses</div>
-          </button>
-          <button class="qa-card" onclick="openNetModal()">
-            <div class="qa-ico">&#x1F4F1;</div><div class="qa-lbl">Open on device</div><div class="qa-sub">Mobile &amp; network access</div>
-          </button>
+          <button class="qa-card" onclick="showPanel('task')"><div class="qa-ico">&#x25B6;</div><div class="qa-lbl">Assign task</div><div class="qa-sub">Send work to an agent</div></button>
+          <button class="qa-card" onclick="showPanel('studio')"><div class="qa-ico">&#x2795;</div><div class="qa-lbl">New agent</div><div class="qa-sub">Create &amp; configure</div></button>
+          <button class="qa-card" onclick="showPanel('manage')"><div class="qa-ico">&#x1F4C1;</div><div class="qa-lbl">Edit workspace</div><div class="qa-sub">Soul, rules, identity files</div></button>
+          <button class="qa-card" onclick="showPanel('history')"><div class="qa-ico">&#x1F4CB;</div><div class="qa-lbl">View history</div><div class="qa-sub">Past tasks &amp; responses</div></button>
+          <button class="qa-card" onclick="openNetModal()"><div class="qa-ico">&#x1F4F1;</div><div class="qa-lbl">Open on device</div><div class="qa-sub">Mobile &amp; network access</div></button>
+          <button class="qa-card" onclick="fixAll()"><div class="qa-ico">&#x1F527;</div><div class="qa-lbl">Fix configs</div><div class="qa-sub">Repair agent setups</div></button>
         </div>
 
         <div class="sec-hd">
@@ -595,24 +614,29 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
       </div>
     </div>
 
-    <!-- TASK -->
+    <!-- ══════ TASK ══════ -->
     <div class="panel" id="panel-task">
       <div class="no-agent" id="noAgentView">
         <div class="na-ill">&#x1F916;</div>
-        <div class="na-ttl">Select an agent to begin</div>
-        <div class="na-sub">Choose an agent from the sidebar, or create a new one. Use <strong>@AgentName</strong> to delegate to multiple agents at once.</div>
-        <button class="na-btn" onclick="showPanel('create')">+ Create first agent</button>
+        <div class="na-ttl">Select an agent</div>
+        <div class="na-sub">Choose an agent from the sidebar to assign a task. Use <strong>@AgentName</strong> to delegate to multiple agents.</div>
+        <button class="na-btn" onclick="showPanel('studio')">Create your first agent</button>
       </div>
       <div class="task-layout" id="taskLayout" style="display:none">
         <div class="task-main">
-          <div class="agent-hdr">
+          <div class="agent-hdr" id="agentHdr">
             <div class="ah-av" id="ahAv"></div>
-            <div class="ah-inf"><div class="ah-nm" id="ahName">Agent</div><div class="ah-mt" id="ahMeta"></div></div>
+            <div class="ah-inf">
+              <div class="ah-nm" id="ahNm"></div>
+              <div class="ah-mt" id="ahMt"></div>
+            </div>
             <div class="ah-bts">
-              <a class="ah-btn" id="ahOCLink" href="#" target="_blank">&#x2197; OpenClaw</a>
+              <a class="ah-btn" id="ahOCLink" href="#" target="_blank">OpenClaw &#x2197;</a>
+              <button class="ah-btn" onclick="openWsModal(curAgent?.id)">&#x1F4C1; Workspace</button>
               <button class="ah-btn" onclick="clearConv()">Clear</button>
             </div>
           </div>
+
           <div class="chat-area" id="chatArea">
             <div class="chat-empty" id="chatEmpty">
               <div class="ce-ill">&#x1F4AC;</div>
@@ -620,124 +644,190 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
               <div class="ce-sub">Type a task below. Use <strong>@AgentName</strong> to automatically delegate to other agents.</div>
             </div>
           </div>
+
           <div class="status-bar">
             <div class="stb-led idle" id="stbLed"></div>
-            <span class="stb-txt" id="stbText">Idle</span>
-            <span style="font-size:.62rem;color:var(--text3)" id="stbChars"></span>
+            <span class="stb-txt" id="stbTxt">Idle</span>
+            <span class="stb-chars" id="stbChars"></span>
           </div>
+
           <div class="inp-sec">
             <div class="inp-lbl">
-              <span>Sending to</span>
-              <span class="inp-badge" id="inpBadge">agent</span>
-              <span style="color:var(--text3);font-size:.62rem">— @mention to delegate</span>
+              Task for <span id="inpAgentName" style="font-weight:600;color:var(--accent-d)">—</span>
+              <span class="inp-badge">@mention to delegate</span>
             </div>
             <div class="inp-wrap">
-              <textarea class="task-inp" id="taskInput" placeholder="Describe the task… e.g. write unit tests, then @QAEngineer verify coverage" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+              <textarea class="task-inp" id="taskInp"
+                placeholder="Describe the task… e.g. Review auth module and @QAEngineer write test cases"
+                onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
               <div class="inp-tb">
-                <span class="inp-hint"><kbd>&#x2318;&#x23CE;</kbd> to send &nbsp;·&nbsp; <code>@Name</code> to delegate</span>
-                <button class="btn-clr" onclick="document.getElementById('taskInput').value='';autoResize(document.getElementById('taskInput'))">Clear</button>
+                <span class="inp-hint"><kbd>⌘↵</kbd> send · <code>@AgentName</code> delegate</span>
+                <button class="btn-clr" onclick="document.getElementById('taskInp').value='';autoResize(document.getElementById('taskInp'))">Clear</button>
                 <button class="btn-send" id="sendBtn" onclick="sendTask()">Send task</button>
               </div>
             </div>
           </div>
         </div>
+
+        <!-- Right sidebar -->
         <div class="task-rt">
           <div class="tr-sec">
             <div class="tr-ttl">Session stats</div>
             <div class="tr-row"><span class="tr-k">Messages</span><span class="tr-v v" id="ss-msgs">0</span></div>
             <div class="tr-row"><span class="tr-k">Characters</span><span class="tr-v i" id="ss-chars">0</span></div>
             <div class="tr-row"><span class="tr-k">Delegations</span><span class="tr-v s" id="ss-del">0</span></div>
-            <div class="tr-row"><span class="tr-k">Session</span><span class="tr-v" id="ss-id" style="color:var(--text3);font-size:.63rem">—</span></div>
           </div>
-          <div class="tr-sec" style="flex:1;overflow-y:auto;min-height:0">
+          <div class="tr-sec" style="flex:1;overflow-y:auto">
             <div class="tr-ttl">Quick delegate</div>
-            <div class="qd-list" id="quickDelList"><div style="font-size:.68rem;color:var(--text3)">Select an agent first</div></div>
-          </div>
-          <div style="flex-shrink:0">
-            <div class="dbg-tog" onclick="toggleDbg()">
-              <span style="font-size:.63rem;font-weight:600">Debug log</span>
-              <span id="dbgCnt" style="font-size:.62rem;color:var(--blue)"></span>
-              <span id="dbgArrow" style="font-size:.62rem">&#x25BC;</span>
+            <div class="qd-list" id="qdList">
+              <div style="font-size:.68rem;color:var(--text3)">No other agents</div>
             </div>
-            <div class="dbg-body" id="dbgBody"></div>
           </div>
+          <div class="dbg-tog" id="dbgTog" onclick="toggleDbg()">
+            <span>WS Debug</span>
+            <span id="dbgCnt" style="font-size:.6rem;color:var(--accent)"></span>
+            <span id="dbgArr">&#x25BE;</span>
+          </div>
+          <div class="dbg-body" id="dbgBody"></div>
         </div>
       </div>
     </div>
 
-    <!-- HISTORY -->
+    <!-- ══════ HISTORY ══════ -->
     <div class="panel" id="panel-history">
       <div class="hist-exp">
-        <button class="heb" onclick="exportHist()">&#x2B07; Export JSON</button>
-        <button class="heb danger" onclick="clearHistory()">Delete all</button>
-        <div style="flex:1"></div>
-        <span style="font-size:.63rem;color:var(--text3)" id="histCount"></span>
+        <button class="heb" onclick="exportHist()">Export JSON</button>
+        <button class="heb danger" onclick="clearHistory()">Clear history</button>
+        <span class="hist-cnt" id="histCount"></span>
       </div>
       <div class="hist-top">
-        <input class="hist-srch" id="histSearch" placeholder="Search tasks and responses..." oninput="filterHistory()">
+        <input class="hist-srch" id="histSearch" placeholder="Search tasks, agents, responses..." oninput="filterHistory()">
         <button class="hf-btn act" onclick="filterAgent('all',this)">All</button>
         <div id="histAgentBtns" style="display:flex;gap:.28rem;flex-wrap:wrap"></div>
       </div>
-      <div class="pscroll"><div id="histList" class="hist-list"></div></div>
+      <div class="pscroll">
+        <div class="hist-list" id="histList"></div>
+      </div>
     </div>
 
-    <!-- CREATE -->
-    <div class="panel" id="panel-create">
+    <!-- ══════ AGENT STUDIO ══════ -->
+    <div class="panel" id="panel-studio">
+      <div class="pg-hdr">
+        <div><div class="pg-title">Agent Studio</div><div class="pg-sub">Configure every workspace file for a new agent</div></div>
+      </div>
       <div class="create-layout">
         <div class="create-form">
-          <div style="font-size:.73rem;color:var(--text3);margin-bottom:.95rem">Configure a new AI agent with a name, model, and personality.</div>
-          <div class="fg">
-            <label class="fl">Agent name <span style="color:var(--rose)">*</span></label>
-            <input class="fi" id="cName" placeholder="e.g. QAEngineer, CodeReviewer, Writer..." oninput="updatePreview()">
+          <div class="studio-tabs" id="studioTabs">
+            <button class="stab active" onclick="switchStab('basic',this)">Basic</button>
+            <button class="stab" onclick="switchStab('soul',this)">SOUL.md</button>
+            <button class="stab" onclick="switchStab('rules',this)">AGENTS.md</button>
+            <button class="stab" onclick="switchStab('identity',this)">Identity</button>
+            <button class="stab" onclick="switchStab('user',this)">USER.md</button>
+            <button class="stab" onclick="switchStab('tools',this)">TOOLS.md</button>
           </div>
-          <div class="fg">
-            <label class="fl">Model provider</label>
-            <div class="model-grid">
-              <label class="model-opt sel"><input type="radio" name="mdl" value="ollama/minimax-m2.5:cloud" checked onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">minimax-m2.5</div><div class="model-pv">ollama / cloud</div></div></label>
-              <label class="model-opt"><input type="radio" name="mdl" value="google/gemini-3.1-pro-preview" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">gemini-3.1-pro</div><div class="model-pv">google</div></div></label>
-              <label class="model-opt"><input type="radio" name="mdl" value="google/gemini-3-pro-preview" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">gemini-3-pro</div><div class="model-pv">google</div></div></label>
-              <label class="model-opt"><input type="radio" name="mdl" value="ollama/llama3" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">llama3</div><div class="model-pv">ollama / local</div></div></label>
-              <label class="model-opt"><input type="radio" name="mdl" value="ollama/mistral" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">mistral</div><div class="model-pv">ollama / local</div></div></label>
-              <label class="model-opt"><input type="radio" name="mdl" value="ollama/codellama" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">codellama</div><div class="model-pv">ollama / local</div></div></label>
+
+          <!-- BASIC -->
+          <div class="stab-pane active" id="stab-basic">
+            <div class="fg"><label class="fl">Agent name<span class="fl-req">*</span></label><input class="fi" id="cName" placeholder="e.g. QAEngineer, CodeReviewer..." oninput="updatePreview()"></div>
+            <div class="fg">
+              <label class="fl">Model</label>
+              <div class="model-grid">
+                <label class="model-opt sel"><input type="radio" name="mdl" value="ollama/minimax-m2.5:cloud" checked onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">minimax-m2.5</div><div class="model-pv">ollama · cloud</div></div></label>
+                <label class="model-opt"><input type="radio" name="mdl" value="google/gemini-3.1-pro-preview" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">Gemini 3.1 Pro</div><div class="model-pv">google</div></div></label>
+                <label class="model-opt"><input type="radio" name="mdl" value="google/gemini-3-pro-preview" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">Gemini 3 Pro</div><div class="model-pv">google</div></div></label>
+                <label class="model-opt"><input type="radio" name="mdl" value="ollama/llama3" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">Llama 3</div><div class="model-pv">ollama · local</div></div></label>
+                <label class="model-opt"><input type="radio" name="mdl" value="ollama/codellama" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">CodeLlama</div><div class="model-pv">ollama · local</div></div></label>
+                <label class="model-opt"><input type="radio" name="mdl" value="ollama/mistral" onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">Mistral</div><div class="model-pv">ollama · local</div></div></label>
+              </div>
             </div>
           </div>
-          <div class="fg">
-            <label class="fl">Personality / Soul <span style="color:var(--text3);font-weight:400">(soul.md)</span></label>
+
+          <!-- SOUL -->
+          <div class="stab-pane" id="stab-soul">
+            <div style="font-size:.68rem;color:var(--text3);margin-bottom:.62rem;padding:.42rem .62rem;background:var(--accent-l);border:1px solid rgba(99,102,241,.15);border-radius:var(--r);line-height:1.6"><strong style="color:var(--accent-d)">SOUL.md</strong> — Personality, values, tone, behavioral boundaries. Injected into every session as the agent's character sheet.</div>
             <div class="soul-tpls">
-              <span style="font-size:.63rem;color:var(--text3);align-self:center;margin-right:.1rem">Templates:</span>
+              <span style="font-size:.65rem;color:var(--text3);align-self:center">Templates:</span>
               <button class="soul-tpl" onclick="setSoul('qa')">QA Engineer</button>
               <button class="soul-tpl" onclick="setSoul('dev')">Developer</button>
               <button class="soul-tpl" onclick="setSoul('writer')">Writer</button>
               <button class="soul-tpl" onclick="setSoul('analyst')">Analyst</button>
+              <button class="soul-tpl" onclick="setSoul('pm')">Product Manager</button>
             </div>
-            <textarea class="ft" id="cSoul" placeholder="# Who You Are&#10;&#10;You are [Name], specialized in..." oninput="updatePreview()"></textarea>
+            <div class="fg"><label class="fl">SOUL.md content<span class="fl-req">*</span></label><textarea class="ft" id="cSoul" style="min-height:220px" placeholder="# Who You Are&#10;&#10;You are [Name], specialized in...&#10;&#10;## Style&#10;- ...&#10;&#10;## Core Skills&#10;- ..." oninput="updatePreview()"></textarea></div>
           </div>
-          <button class="btn-create" id="cBtn" onclick="createAgent()">Create agent</button>
+
+          <!-- RULES -->
+          <div class="stab-pane" id="stab-rules">
+            <div style="font-size:.68rem;color:var(--text3);margin-bottom:.62rem;padding:.42rem .62rem;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.18);border-radius:var(--r);line-height:1.6"><strong style="color:#065f46">AGENTS.md</strong> — Operating rules, session workflow, memory rules. What the agent does and how it works every session.</div>
+            <div class="fg"><label class="fl">AGENTS.md rules</label><textarea class="ft" id="cAgents" style="min-height:220px" placeholder="# Operating Rules&#10;&#10;## Every Session&#10;1. Read USER.md for context&#10;2. Check memory for today&#10;&#10;## Behavior&#10;- Keep replies concise&#10;- Never share private info&#10;&#10;## Memory&#10;- Log decisions to memory/YYYY-MM-DD.md"></textarea></div>
+          </div>
+
+          <!-- IDENTITY -->
+          <div class="stab-pane" id="stab-identity">
+            <div style="font-size:.68rem;color:var(--text3);margin-bottom:.62rem;padding:.42rem .62rem;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.18);border-radius:var(--r);line-height:1.6"><strong style="color:#1d4ed8">Identity</strong> — Sets the display name, emoji, and theme in openclaw.json. Also creates IDENTITY.md.</div>
+            <div class="fg"><label class="fl">Display name in OpenClaw</label><input class="fi" id="cIdName" placeholder="e.g. QA Bot, Code Reviewer..." oninput="updatePreview()"></div>
+            <div class="fg">
+              <label class="fl">Emoji / avatar</label>
+              <div style="display:flex;flex-wrap:wrap;gap:.28rem" id="emojiGrid"></div>
+            </div>
+            <div class="fg"><label class="fl">Personality theme</label><input class="fi" id="cTheme" placeholder="e.g. detail-oriented, systematic" oninput="updatePreview()"></div>
+            <div class="fg"><label class="fl">IDENTITY.md content</label><textarea class="ft" id="cIdentity" placeholder="# Identity&#10;&#10;Name: Agent Name&#10;Role: Description&#10;Vibe: Character&#10;Emoji: 🤖"></textarea></div>
+          </div>
+
+          <!-- USER -->
+          <div class="stab-pane" id="stab-user">
+            <div style="font-size:.68rem;color:var(--text3);margin-bottom:.62rem;padding:.42rem .62rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:var(--r);line-height:1.6"><strong style="color:#92400e">USER.md</strong> — Your context: preferences, style, timezone, current projects. Loaded every private session.</div>
+            <div class="fg"><label class="fl">USER.md content</label><textarea class="ft" id="cUser" style="min-height:220px" placeholder="# About the User&#10;&#10;Name: Aniket Rao&#10;Role: Developer&#10;Timezone: Asia/Kolkata&#10;&#10;## Preferences&#10;- Communication: Direct and concise&#10;- Code style: Clean, commented&#10;&#10;## Current Projects&#10;- OpenClaw Portal"></textarea></div>
+          </div>
+
+          <!-- TOOLS -->
+          <div class="stab-pane" id="stab-tools">
+            <div style="font-size:.68rem;color:var(--text3);margin-bottom:.62rem;padding:.42rem .62rem;background:rgba(244,63,94,.05);border:1px solid rgba(244,63,94,.15);border-radius:var(--r);line-height:1.6"><strong style="color:#991b1b">TOOLS.md</strong> — Environment: tools, calendar, CRM, conventions. Never put credentials here.</div>
+            <div class="fg"><label class="fl">TOOLS.md content</label><textarea class="ft" id="cTools" style="min-height:220px" placeholder="# Tools & Environment&#10;&#10;## Development&#10;- IDE: VS Code + Xcode&#10;- Git: GitHub&#10;&#10;## Services&#10;- Telegram, WhatsApp&#10;&#10;## Conventions&#10;- Dates: ISO 8601&#10;- TZ: Asia/Kolkata"></textarea></div>
+          </div>
+
+          <div style="display:flex;gap:.52rem;align-items:center;flex-wrap:wrap;margin-top:.88rem">
+            <button class="btn-create" id="cBtn" onclick="createAgent()">&#x2713; Create agent</button>
+            <button style="background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--r);padding:.5rem .9rem;font-size:.72rem;font-weight:500;font-family:var(--sans);cursor:pointer;transition:all .15s" onclick="clearStudio()" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">Clear form</button>
+          </div>
           <div class="fb" id="cFb"></div>
         </div>
+
+        <!-- Preview -->
         <div class="create-prev">
-          <div style="font-size:.65rem;font-weight:700;color:var(--text3);margin-bottom:.72rem;text-transform:uppercase;letter-spacing:.07em">Preview</div>
+          <div style="font-size:.63rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.62rem">Preview</div>
           <div class="prev-card">
-            <div class="pv-c">Agent configuration</div>
-            <div class="pv-r"><span class="pv-k">id</span><span class="pv-eq">=</span><span class="pv-v" id="pv-id">—</span></div>
-            <div class="pv-r"><span class="pv-k">model</span><span class="pv-eq">=</span><span class="pv-v m" id="pv-model">minimax-m2.5</span></div>
-            <div class="pv-r"><span class="pv-k">status</span><span class="pv-eq">=</span><span class="pv-v" style="color:var(--amber)">pending</span></div>
+            <div class="pv-c">// agent.config</div>
+            <div class="pv-r"><span class="pv-k">id</span><span class="pv-eq">=</span><span class="pv-v" id="pv-id">???</span></div>
+            <div class="pv-r"><span class="pv-k">model</span><span class="pv-eq">=</span><span class="pv-v m" id="pv-model">minimax-m2.5:cloud</span></div>
+            <div class="pv-r"><span class="pv-k">emoji</span><span class="pv-eq">=</span><span class="pv-v" id="pv-emoji">🤖</span></div>
             <div class="pv-r"><span class="pv-k">workspace</span><span class="pv-eq">=</span><span class="pv-v f" id="pv-ws">~/.openclaw/workspace-???</span></div>
           </div>
-          <div style="font-size:.63rem;font-weight:700;color:var(--text3);margin:.82rem 0 .38rem;text-transform:uppercase;letter-spacing:.07em">Soul preview</div>
+          <div style="font-size:.63rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:.72rem 0 .38rem">Workspace files</div>
+          <div class="pv-files">
+            <div class="pvf-row"><span>📄</span><span class="pvf-nm">SOUL.md</span><span class="pvf-miss" id="pvf-soul">Empty</span></div>
+            <div class="pvf-row"><span>📜</span><span class="pvf-nm">AGENTS.md</span><span class="pvf-miss" id="pvf-agents">Empty</span></div>
+            <div class="pvf-row"><span>🪪</span><span class="pvf-nm">IDENTITY.md</span><span class="pvf-miss" id="pvf-identity">Empty</span></div>
+            <div class="pvf-row"><span>👤</span><span class="pvf-nm">USER.md</span><span class="pvf-miss" id="pvf-user">Empty</span></div>
+            <div class="pvf-row"><span>🔧</span><span class="pvf-nm">TOOLS.md</span><span class="pvf-miss" id="pvf-tools">Empty</span></div>
+          </div>
+          <div style="font-size:.63rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:.72rem 0 .38rem">SOUL.md preview</div>
           <div class="pv-soul" id="pvSoul">Waiting for input...</div>
         </div>
       </div>
     </div>
 
-    <!-- MANAGE -->
+    <!-- ══════ MANAGE ══════ -->
     <div class="panel" id="panel-manage">
-      <div class="pscroll">
-        <div class="mbar">
-          <button class="mb-btn go" onclick="fixAll()">&#x26A1; Fix all configs</button>
-          <button class="mb-btn" onclick="loadAgents()">&#x21BA; Refresh</button>
+      <div class="pg-hdr">
+        <div><div class="pg-title">Manage Agents</div><div class="pg-sub">Edit workspace files, fix configs, manage all agents</div></div>
+        <div class="pg-acts">
+          <button class="p-btn" onclick="loadAgents()">&#x21BA; Refresh</button>
+          <button class="p-btn pri" onclick="fixAll()">&#x26A1; Fix All</button>
         </div>
-        <div class="fb" id="manageFb"></div>
+      </div>
+      <div class="pscroll">
+        <div class="fb" id="manageFb" style="margin-bottom:.85rem"></div>
         <div class="manage-grid" id="manageGrid"></div>
       </div>
     </div>
@@ -746,22 +836,40 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 </div>
 </div>
 
-<!-- SOUL MODAL -->
+<!-- WORKSPACE FILES MODAL -->
+<div class="modal-bg" id="wsModal">
+  <div class="modal modal-lg">
+    <div class="modal-hd">
+      <span class="modal-ttl">&#x1F4C1; Workspace — <span id="wsMName" style="color:var(--accent-d)"></span></span>
+      <button class="modal-x" onclick="closeWsModal()">&#x2715;</button>
+    </div>
+    <div class="ws-tabs" id="wsTabRow"></div>
+    <div class="ws-desc" id="wsFileDesc"></div>
+    <textarea class="ft" id="wsEditor" style="min-height:280px;font-size:.72rem"></textarea>
+    <div style="display:flex;gap:.38rem;margin-top:.72rem">
+      <button class="p-btn pri" onclick="saveWsFile()">Save file</button>
+      <button class="p-btn" onclick="closeWsModal()">Cancel</button>
+    </div>
+    <div class="fb" id="wsFb"></div>
+  </div>
+</div>
+
+<!-- SOUL EDIT MODAL (quick edit from manage) -->
 <div class="modal-bg" id="soulModal">
   <div class="modal">
     <div class="modal-hd">
-      <div class="modal-ttl">Edit soul.md — <span id="soulMName" style="color:var(--accent-d)"></span></div>
+      <span class="modal-ttl">Edit SOUL.md — <span id="soulMName" style="color:var(--accent-d)"></span></span>
       <button class="modal-x" onclick="closeSoulModal()">&#x2715;</button>
     </div>
-    <div class="fg"><label class="fl">Personality content</label><textarea class="ft" id="soulMText" style="min-height:195px" placeholder="# Who You Are..."></textarea></div>
-    <div style="display:flex;align-items:center;gap:.55rem;margin-bottom:.72rem">
+    <div class="fg"><label class="fl">SOUL.md content</label><textarea class="ft" id="soulMText" style="min-height:200px" placeholder="# Who You Are..."></textarea></div>
+    <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.62rem">
       <label style="display:flex;align-items:center;gap:.38rem;font-size:.7rem;color:var(--text2);cursor:pointer">
-        <input type="checkbox" id="soulGlobal" checked style="accent-color:var(--accent)"> Also update global soul.md
+        <input type="checkbox" id="soulGlobal" checked style="accent-color:var(--accent)"> Update global SOUL.md too
       </label>
     </div>
-    <div style="display:flex;gap:.48rem">
-      <button onclick="submitSoul()" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:.52rem;font-size:.77rem;font-weight:600;font-family:var(--sans);cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,.28);transition:all .15s">Save soul.md</button>
-      <button onclick="closeSoulModal()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);padding:.52rem .9rem;font-size:.77rem;font-weight:500;font-family:var(--sans);cursor:pointer">Cancel</button>
+    <div style="display:flex;gap:.38rem">
+      <button class="p-btn pri" onclick="submitSoul()">Save SOUL.md</button>
+      <button class="p-btn" onclick="closeSoulModal()">Cancel</button>
     </div>
     <div class="fb" id="soulFb"></div>
   </div>
@@ -771,64 +879,110 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 <div class="modal-bg" id="netModal">
   <div class="modal">
     <div class="modal-hd">
-      <div class="modal-ttl">Network access</div>
+      <span class="modal-ttl">Network access</span>
       <button class="modal-x" onclick="closeNetModal()">&#x2715;</button>
     </div>
-    <div id="netContent"><div style="color:var(--text3);font-size:.73rem">Loading network info...</div></div>
+    <div id="netContent"><div style="color:var(--text3);font-size:.73rem">Loading...</div></div>
   </div>
 </div>
 
 <script>
-let agents=[],selected=null,streaming=false,soulId=null,dbgOpen=false,dbgN=0;
-let ss={msgs:0,chars:0,dels:0},allTasks=[],histFilter='all',histQ='';
+// ══════════════════════════════════════
+// STATE
+// ══════════════════════════════════════
+let agents=[], curAgent=null, streaming=false;
+let wsAgentId=null, wsCurrentFile=null, wsData=null;
+let soulId=null, dbgOpen=false, dbgCount=0;
+let ss={msgs:0,chars:0,dels:0};
+let allTasks=[], histFilter='all', histQ='';
+let selEmoji='🤖';
 
-const COLORS=[
-  {bg:'#f3f0ff',text:'#5b21b6',dot:'#7c3aed'},{bg:'#eef2ff',text:'#3730a3',dot:'#6366f1'},
-  {bg:'#e0f2fe',text:'#075985',dot:'#0284c7'},{bg:'#ecfdf5',text:'#065f46',dot:'#059669'},
-  {bg:'#fdf4ff',text:'#86198f',dot:'#c026d3'},{bg:'#fff7ed',text:'#9a3412',dot:'#ea580c'},
-  {bg:'#fef2f2',text:'#991b1b',dot:'#dc2626'},{bg:'#f0fdf4',text:'#166534',dot:'#16a34a'},
+// CSS-safe color palette matching the theme
+const PALETTES=[
+  {bg:'#f3f0ff',text:'#5b21b6'},{bg:'#eef2ff',text:'#4338ca'},
+  {bg:'#e0f2fe',text:'#0369a1'},{bg:'#ecfdf5',text:'#065f46'},
+  {bg:'#fef3c7',text:'#92400e'},{bg:'#fce7f3',text:'#9d174d'},
+  {bg:'#fff7ed',text:'#9a3412'},{bg:'#f0fdf4',text:'#166534'},
 ];
-const aC=id=>COLORS[Math.abs([...id].reduce((a,c)=>a+c.charCodeAt(0),0))%COLORS.length];
-const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const fmt=n=>n>=1000?(n/1000).toFixed(1)+'k':String(n);
-const ts=()=>new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const aC = id => PALETTES[Math.abs([...id].reduce((a,c)=>a+c.charCodeAt(0),0))%PALETTES.length];
+const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const ts  = () => new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit'});
+
+const WS_FILES=['SOUL.md','AGENTS.md','IDENTITY.md','USER.md','TOOLS.md','HEARTBEAT.md','MEMORY.md'];
+const WS_DESC={
+  'SOUL.md':'Personality, values, tone, and behavioral boundaries. Injected into every session.',
+  'AGENTS.md':'Operating rules and session workflow. What the agent does and how.',
+  'IDENTITY.md':'Public name, emoji, role label. Keep it short — heavy logic goes in SOUL.md.',
+  'USER.md':'Context about you: preferences, work style, timezone, current projects.',
+  'TOOLS.md':'Environment info: tools, calendar, CRM, conventions. Never put credentials here.',
+  'HEARTBEAT.md':'Short checklist for scheduled heartbeat runs. Keep under 50 lines.',
+  'MEMORY.md':'Long-term memory. Curated facts and lessons. Private sessions only.',
+};
+const WS_ICONS={SOUL:'📄',AGENTS:'📜',IDENTITY:'🪪',USER:'👤',TOOLS:'🔧',HEARTBEAT:'💓',MEMORY:'🧠'};
+
 const SOULS={
-  qa:`# QA Engineer\n\nYou are a meticulous QA Engineer with deep expertise in testing strategies, bug detection, and quality processes.\n\n## Style\n- Systematic and thorough\n- Clear bug reports with exact reproduction steps\n- Focus on edge cases and boundary conditions\n\n## Skills\n- Test case design (functional, regression, edge cases)\n- API and UI testing methodology\n- Defect lifecycle and test automation strategy`,
-  dev:`# Senior Developer\n\nYou are a senior software engineer with 10+ years building scalable systems. Direct, specific, no fluff.\n\n## Focus\n- Code architecture and clarity\n- Security vulnerabilities\n- Performance optimization\n- Design patterns and best practices`,
-  writer:`# Technical Writer\n\nYou are a skilled technical writer specializing in clear, precise documentation and content.\n\n## Specialties\n- Technical documentation and API docs\n- Blog posts and tutorials\n- README and developer guides`,
-  analyst:`# Data Analyst\n\nYou are a data analyst who turns raw data into actionable insights with clarity.\n\n## Skills\n- Statistical analysis\n- Trend analysis and forecasting\n- Data storytelling`,
+  qa:`# QA Engineer\n\nYou are a meticulous QA Engineer with deep expertise in testing strategies, bug detection, and quality assurance.\n\n## Style\n- Systematic and thorough\n- Clear bug reports with exact reproduction steps\n- Focus on edge cases and boundary conditions\n- Collaborative, not adversarial\n\n## Core Skills\n- Test case design: functional, regression, edge cases\n- API and UI testing methodology\n- Defect lifecycle management\n- Test automation strategy`,
+  dev:`# Senior Developer\n\nYou are a senior software engineer with 10+ years building scalable, maintainable systems.\n\n## Style\n- Direct and specific — no fluff\n- Concrete code examples always\n- Point out security issues and performance bottlenecks proactively\n- Constructive criticism, acknowledge good patterns\n\n## Focus Areas\n- Clean architecture and SOLID principles\n- Security and performance\n- Design patterns and refactoring`,
+  writer:`# Technical Writer\n\nYou are a skilled technical writer specializing in clear, precise documentation and content.\n\n## Style\n- Adapt tone to audience\n- Concise but complete\n- Strong narrative structure\n\n## Specialties\n- Technical documentation and API references\n- Blog posts and how-to guides\n- Business communication`,
+  analyst:`# Data Analyst\n\nYou are a data analyst turning raw data into actionable insights.\n\n## Style\n- Data-driven and objective\n- Clear visualizations of complex information\n- Honest about data limitations\n\n## Skills\n- Statistical analysis\n- Trend identification\n- Business intelligence and KPI definition`,
+  pm:`# Product Manager\n\nYou are a strategic Product Manager building products users love.\n\n## Style\n- Outcomes over outputs\n- Balance user needs with business goals\n- Clear across technical and non-technical teams\n\n## Skills\n- Roadmap planning and prioritization\n- User story writing\n- Stakeholder management`,
 };
 
-function showPanel(n){
+// ══════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════
+function showPanel(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item,[id^="htab-"]').forEach(b=>b.classList.remove('active'));
-  document.getElementById(`panel-${n}`).classList.add('active');
-  ['dashboard','task','history','create','manage'].forEach(x=>{document.getElementById(`nav-${x}`)?.classList.toggle('active',x===n);document.getElementById(`htab-${x}`)?.classList.toggle('active',x===n);});
-  if(n==='history')loadHistory();if(n==='manage')renderManage();if(n==='dashboard')renderDash();closeSidebar();
+  document.querySelectorAll('.nav-item,[id^="nav-"]').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  document.getElementById(`nav-${name}`)?.classList.add('active');
+  document.getElementById(`htab-${name}`)?.classList.add('active');
+  if(name==='history')loadHistory();
+  if(name==='manage')renderManage();
+  if(name==='dashboard')renderDash();
+  closeSidebar();
 }
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('mob-open');document.getElementById('sbOverlay').classList.toggle('show');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('mob-open');document.getElementById('sbOverlay').classList.remove('show');}
 
+// ══════════════════════════════════════
+// GATEWAY
+// ══════════════════════════════════════
 async function checkGateway(){
   const dot=document.getElementById('gwDot'),lbl=document.getElementById('gwLbl'),sts=document.getElementById('gwSts');
-  const tl=document.getElementById('topLed'),tt=document.getElementById('topGwText');
+  const pill=document.getElementById('gwPill');
+  const topLed=document.getElementById('topLed'),topTxt=document.getElementById('topGwText');
   try{
-    const d=await fetch('/api/debug').then(r=>r.json());const n=d.configAgentsList?.length||0;
-    dot.className='gw-dot on';lbl.textContent='Gateway online';sts.textContent=`${n} agents`;
-    tl.style.cssText='width:7px;height:7px;border-radius:50%;background:var(--emerald)';tt.textContent='Online';
-    document.getElementById('stat-gw').textContent='Online';document.getElementById('stat-gw').style.color='var(--emerald)';
-    document.getElementById('stat-gw-sub').textContent=`${n} agent${n!==1?'s':''} registered`;document.getElementById('gw-badge').textContent='Connected';
+    const d=await fetch('/api/debug').then(r=>r.json());
+    const n=d.configAgentsList?.length||0;
+    dot.className='gw-dot on'; lbl.textContent='Gateway online'; sts.textContent=`${n} agents`;
+    pill.className='gw-pill on'; topLed.className='gw-dot on'; topTxt.textContent='Online';
+    document.getElementById('stat-gw').textContent='Online';
+    document.getElementById('stat-gw').style.color='var(--emerald)';
+    document.getElementById('stat-gw').style.fontSize='1.05rem';
+    document.getElementById('stat-gw-sub').textContent=`${n} agents registered`;
+    document.getElementById('gw-badge').textContent='Online';
+    document.getElementById('gw-badge').style.background='#ecfdf5';
+    document.getElementById('gw-badge').style.color='#065f46';
   }catch{
-    dot.className='gw-dot off';lbl.textContent='Gateway offline';sts.textContent='';
-    tl.style.cssText='width:7px;height:7px;border-radius:50%;background:var(--rose)';tt.textContent='Offline';
-    document.getElementById('stat-gw').textContent='Offline';document.getElementById('stat-gw').style.color='var(--rose)';
-    document.getElementById('stat-gw-sub').textContent='Cannot reach gateway';document.getElementById('gw-badge').textContent='Disconnected';
+    dot.className='gw-dot off'; lbl.textContent='Gateway offline'; sts.textContent='';
+    pill.className='gw-pill off'; topLed.className='gw-dot off'; topTxt.textContent='Offline';
+    document.getElementById('stat-gw').textContent='Offline';
+    document.getElementById('stat-gw').style.color='var(--rose)';
+    document.getElementById('stat-gw-sub').textContent='Connection refused';
+    document.getElementById('gw-badge').textContent='Offline';
+    document.getElementById('gw-badge').style.background='#fef2f2';
+    document.getElementById('gw-badge').style.color='#991b1b';
   }
 }
 
+// ══════════════════════════════════════
+// AGENTS
+// ══════════════════════════════════════
 async function loadAgents(){
   try{agents=await fetch('/api/agents').then(r=>r.json());}catch{agents=[];}
-  renderSidebar();renderManage();renderDashAgents();updateQuickDel();renderHistAgentBtns();
+  renderSidebar(); renderManage(); renderDashAgents(); renderQD(); renderHistAgentBtns();
   document.getElementById('stat-agents').textContent=agents.length;
   document.getElementById('sbar-agents').style.width=Math.min(100,agents.length*15)+'%';
 }
@@ -837,150 +991,268 @@ function renderSidebar(){
   const el=document.getElementById('sbAgents');
   if(!agents.length){el.innerHTML='<div style="font-size:.7rem;color:var(--text3);padding:.38rem .28rem">No agents yet</div>';return;}
   el.innerHTML=agents.map(a=>{
-    const c=aC(a.id);const ok=a.inConfig&&a.workspaceOk;const init=(a.name||'?').slice(0,2).toUpperCase();const isSel=selected?.id===a.id;
-    return `<button class="agent-row${isSel?' selected':''}" onclick="selectAgent('${a.id}')">
-      <div class="ar-av" style="background:${c.bg};color:${c.text}">${init}</div>
+    const c=aC(a.id);const ok=a.inConfig&&a.workspaceOk;
+    const init=(a.name||'?').slice(0,2).toUpperCase();
+    return `<button class="agent-row${curAgent?.id===a.id?' selected':''}" onclick="selectAgent('${a.id}')">
+      <div class="ar-av" style="background:${c.bg};color:${c.text}">${a.identity?.emoji||init}</div>
       <div class="ar-inf"><div class="ar-nm">${esc(a.name)}</div><div class="ar-mdl">${(a.model||'').split('/').pop()}</div></div>
-      <div class="ar-ping" style="background:${ok?c.dot:'var(--rose)'}"></div>
+      <div class="ar-ping" style="background:${ok?'var(--emerald)':'var(--rose)'}"></div>
     </button>`;
   }).join('');
 }
 
 function selectAgent(id){
-  selected=agents.find(a=>a.id===id);if(!selected)return;
-  renderSidebar();updateQuickDel();
-  const c=aC(selected.id);const init=(selected.name||'?').slice(0,2).toUpperCase();
-  const av=document.getElementById('ahAv');
-  av.style.cssText=`width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;background:${c.bg};color:${c.text}`;
-  av.textContent=init;
-  document.getElementById('ahName').textContent=selected.name;
-  document.getElementById('ahMeta').textContent=`${selected.model||''} · session: agent:${selected.id}:main`;
-  document.getElementById('ahOCLink').href=`http://127.0.0.1:18789/chat?session=agent:${selected.id}:main`;
-  const ib=document.getElementById('inpBadge');ib.textContent=selected.name;ib.style.background=c.bg;ib.style.color=c.text;
-  document.getElementById('ss-id').textContent=selected.id.substring(0,12);
-  document.getElementById('noAgentView').style.display='none';document.getElementById('taskLayout').style.display='grid';showPanel('task');
+  curAgent=agents.find(a=>a.id===id); if(!curAgent)return;
+  renderSidebar(); renderQD();
+  const c=aC(curAgent.id); const init=(curAgent.name||'?').slice(0,2).toUpperCase();
+  document.getElementById('ahAv').style.cssText=`background:${c.bg};color:${c.text};width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;flex-shrink:0`;
+  document.getElementById('ahAv').textContent=curAgent.identity?.emoji||init;
+  document.getElementById('ahNm').textContent=curAgent.name;
+  document.getElementById('ahMt').textContent=`${curAgent.model||''} · session: agent:${curAgent.id}:main`;
+  document.getElementById('ahOCLink').href=`http://127.0.0.1:18789/chat?session=agent:${curAgent.id}:main`;
+  document.getElementById('inpAgentName').textContent=curAgent.name;
+  document.getElementById('noAgentView').style.display='none';
+  document.getElementById('taskLayout').style.display='grid';
+  showPanel('task');
 }
 
-function updateQuickDel(){
-  const el=document.getElementById('quickDelList');if(!el)return;
-  const others=agents.filter(a=>a.id!==selected?.id);
-  if(!others.length){el.innerHTML='<div style="font-size:.68rem;color:var(--text3)">No other agents</div>';return;}
+function renderQD(){
+  const el=document.getElementById('qdList'); if(!el)return;
+  const others=agents.filter(a=>a.id!==curAgent?.id);
+  if(!others.length){el.innerHTML='<div style="font-size:.68rem;color:var(--text3)">No other agents available</div>';return;}
   el.innerHTML=others.slice(0,6).map(a=>{
-    const c=aC(a.id);const init=(a.name||'?').slice(0,2).toUpperCase();
-    return `<button class="qd-item" onclick="insertAt('@${a.name}')">
-      <div class="qd-av" style="background:${c.bg};color:${c.text}">${init}</div>
+    const c=aC(a.id); const init=(a.name||'?').slice(0,2).toUpperCase();
+    return `<button class="qd-item" onclick="insertMention('@${a.name}')">
+      <div class="qd-av" style="background:${c.bg};color:${c.text}">${a.identity?.emoji||init}</div>
       <span class="qd-nm">${esc(a.name)}</span>
       <span class="qd-m">${(a.model||'').split('/').pop().substring(0,10)}</span>
     </button>`;
   }).join('');
 }
 
-function insertAt(m){const i=document.getElementById('taskInput');const s=i.selectionStart,v=i.value;const p=v[s-1]===undefined||v[s-1]===' '?'':' ';i.value=v.slice(0,s)+p+m+' '+v.slice(s);i.focus();autoResize(i);}
+function insertMention(m){
+  const el=document.getElementById('taskInp');
+  const s=el.selectionStart,v=el.value;
+  el.value=v.slice(0,s)+(v[s-1]&&v[s-1]!==' '?' ':'')+m+' '+v.slice(s);
+  el.focus(); autoResize(el);
+}
 
+// ══════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════
 function renderDash(){
   const del=allTasks.filter(t=>t.fromAgent).length;
-  document.getElementById('stat-tasks').textContent=fmt(allTasks.length);document.getElementById('stat-del').textContent=fmt(del);
+  document.getElementById('stat-tasks').textContent=allTasks.length;
+  document.getElementById('stat-del').textContent=del;
   document.getElementById('sbar-tasks').style.width=Math.min(100,allTasks.length*5)+'%';
   document.getElementById('sbar-del').style.width=del?Math.min(100,(del/Math.max(allTasks.length,1))*100)+'%':'0%';
   const rec=document.getElementById('dashRecent');
   if(!allTasks.length){rec.innerHTML='<div style="font-size:.73rem;color:var(--text3);padding:.42rem 0">No tasks yet — assign one to get started.</div>';return;}
   rec.innerHTML=allTasks.slice(0,5).map(t=>{
-    const c=aC(t.agentId||'a');const init=(t.agentName||'?').slice(0,2).toUpperCase();
+    const c=aC(t.agentId||'a'); const init=(t.agentName||'?').slice(0,2).toUpperCase();
     return `<div class="recent-card" onclick="showPanel('history')">
-      <div class="rc-t"><div class="rc-av" style="background:${c.bg};color:${c.text}">${init}</div><span class="rc-nm" style="color:${c.text}">${esc(t.agentName)}</span>${t.fromAgent?`<span style="font-size:.6rem;color:var(--pink);font-weight:500">via ${esc(t.fromAgent)}</span>`:''}<span class="rc-ts">${new Date(t.createdAt).toLocaleTimeString()}</span></div>
-      <div class="rc-task">${esc(t.task.substring(0,70))}</div><div class="rc-resp">${esc((t.response||'').substring(0,90))}…</div>
+      <div class="rc-t">
+        <div class="rc-av" style="background:${c.bg};color:${c.text}">${init}</div>
+        <span class="rc-nm" style="color:${c.text}">${esc(t.agentName)}</span>
+        ${t.fromAgent?`<span class="rc-del">via ${esc(t.fromAgent)}</span>`:''}
+        <span class="rc-ts">${new Date(t.createdAt).toLocaleTimeString()}</span>
+      </div>
+      <div class="rc-task">${esc(t.task.substring(0,72))}</div>
+      <div class="rc-resp">${esc((t.response||'').substring(0,90))}…</div>
     </div>`;
   }).join('');
 }
 
 function renderDashAgents(){
-  const el=document.getElementById('dashAgents');if(!el)return;
-  el.innerHTML=agents.map(a=>{const c=aC(a.id);const ok=a.inConfig&&a.workspaceOk;return `<button class="agent-chip" onclick="selectAgent('${a.id}')"><div class="acp-dot" style="background:${ok?c.dot:'var(--rose)'}"></div><span style="font-weight:600;color:${c.text}">${esc(a.name)}</span><span style="font-size:.62rem;color:var(--text3)">${ok?'Ready':'Error'}</span></button>`;}).join('');
+  const el=document.getElementById('dashAgents'); if(!el)return;
+  el.innerHTML=agents.map(a=>{
+    const c=aC(a.id);const ok=a.inConfig&&a.workspaceOk;
+    return `<button class="agent-chip" onclick="selectAgent('${a.id}')">
+      <div class="acp-dot" style="background:${ok?'var(--emerald)':'var(--rose)'}"></div>
+      <span style="color:${c.text}">${a.identity?.emoji||''} ${esc(a.name)}</span>
+    </button>`;
+  }).join('');
 }
 
+// ══════════════════════════════════════
+// SEND TASK
+// ══════════════════════════════════════
 function handleKey(e){if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();sendTask();}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,115)+'px';}
-function setSt(type,text){const led=document.getElementById('stbLed');led.className='stb-led '+(type==='work'?'work':type==='done'?'done':type==='err'?'err':'idle');document.getElementById('stbText').textContent=text;}
 
-function addDbg(msg,type=''){dbgN++;const el=document.getElementById('dbgBody');const d=document.createElement('div');d.className=`dl ${type}`;d.textContent=`[${ts()}] ${msg}`;el.appendChild(d);if(el.children.length>100)el.removeChild(el.firstChild);el.scrollTop=99999;document.getElementById('dbgCnt').textContent=`(${dbgN})`;}
-function clearDbg(){dbgN=0;document.getElementById('dbgBody').innerHTML='';document.getElementById('dbgCnt').textContent='';}
-function toggleDbg(){dbgOpen=!dbgOpen;document.getElementById('dbgBody').classList.toggle('open',dbgOpen);document.getElementById('dbgArrow').textContent=dbgOpen?'▲':'▼';}
+function setSt(type,text){
+  const l=document.getElementById('stbLed');
+  l.className='stb-led '+(type==='work'?'work':type==='done'?'done':type==='err'?'err':'idle');
+  document.getElementById('stbTxt').textContent=text;
+}
+
+function addDbg(msg,type=''){
+  dbgCount++; document.getElementById('dbgCnt').textContent=`(${dbgCount})`;
+  const el=document.getElementById('dbgBody');
+  const d=document.createElement('div'); d.className=`dl ${type}`; d.textContent=`[${ts()}] ${msg}`;
+  el.appendChild(d); if(el.children.length>120)el.removeChild(el.firstChild);
+  el.scrollTop=99999;
+}
+function clearDbg(){dbgCount=0;document.getElementById('dbgBody').innerHTML='';document.getElementById('dbgCnt').textContent='';}
+function toggleDbg(){dbgOpen=!dbgOpen;document.getElementById('dbgBody').classList.toggle('open',dbgOpen);document.getElementById('dbgArr').textContent=dbgOpen?'▴':'▾';}
 
 function appendMsg(type,content,name){
-  const area=document.getElementById('chatArea');const empty=document.getElementById('chatEmpty');if(empty)empty.style.display='none';
-  const c=type==='user'?null:aC(name||selected?.id||'a');
-  const wrap=document.createElement('div');wrap.className='msg-wrap';
+  const area=document.getElementById('chatArea');
+  document.getElementById('chatEmpty').style.display='none';
+  const c=type==='user'?{bg:'var(--accent)',text:'#fff'}:aC(name||curAgent?.id||'a');
+  const tag=type==='user'?'You':name||curAgent?.name||'Agent';
+  const wrap=document.createElement('div'); wrap.className='msg-wrap';
   if(type==='user'){
-    wrap.innerHTML=`<div class="msg-meta" style="justify-content:flex-end"><span class="msg-meta-nm" style="color:var(--accent-d)">You</span><span>${ts()}</span></div><div class="msg-user">${esc(content)}</div>`;
+    wrap.innerHTML=`<div class="msg-meta"><span class="msg-meta-nm" style="color:var(--accent-d)">${esc(tag)}</span><span>${ts()}</span></div><div class="msg-user">${esc(content)}</div>`;
   }else{
-    wrap.innerHTML=`<div class="msg-meta"><span class="msg-meta-nm" style="color:${c.text}">${esc(name||selected?.name||'Agent')}</span><span>${ts()}</span></div><div class="msg-agent streaming" id="curMsg"></div>`;
+    wrap.innerHTML=`<div class="msg-meta"><span class="msg-meta-nm" style="color:${c.text}">${esc(tag)}</span><span>${ts()}</span></div><div class="msg-agent streaming" id="curMsg"></div>`;
   }
-  area.appendChild(wrap);area.scrollTop=99999;
+  area.appendChild(wrap); area.scrollTop=99999;
 }
-function updateCurMsg(text){const el=document.getElementById('curMsg');if(!el)return;el.innerHTML=esc(text)+'<span class="cblink"></span>';document.getElementById('chatArea').scrollTop=99999;}
-function finalizeCurMsg(text){const el=document.getElementById('curMsg');if(!el)return;el.innerHTML=esc(text);el.classList.remove('streaming');el.removeAttribute('id');}
 
-function appendDelegSection(delegations){
-  const area=document.getElementById('chatArea');const blk=document.createElement('div');blk.className='deleg-block';
-  blk.innerHTML=`<div class="db-hd">Delegating to ${delegations.length} agent${delegations.length>1?'s':''}</div>${delegations.map(d=>{const c=aC(d.agentId);const init=(d.agentName||'?').slice(0,2).toUpperCase();return `<div class="deleg-task" id="dt-${d.agentId}"><div class="dt-hd"><div class="dt-av" style="background:${c.bg};color:${c.text}">${init}</div><span class="dt-nm">${esc(d.agentName)}</span><span class="dt-st dts-pending" id="dts-${d.agentId}">Pending</span></div><div class="dt-resp" id="dtr-${d.agentId}">Waiting...</div></div>`;}).join('')}`;
-  area.appendChild(blk);area.scrollTop=99999;
+function updateCurMsg(text){const el=document.getElementById('curMsg');if(!el)return;el.innerHTML=esc(text)+'<span class="cblink"></span>';document.getElementById('chatArea').scrollTop=99999;}
+function finalizeCurMsg(text){const el=document.getElementById('curMsg');if(!el)return;el.innerHTML=esc(text||'(empty response)');el.classList.remove('streaming');el.removeAttribute('id');}
+
+function appendDelegBlock(delegations){
+  const area=document.getElementById('chatArea');
+  const blk=document.createElement('div'); blk.className='deleg-block';
+  blk.innerHTML=`<div class="db-hd">&#x21C4; Delegated to ${delegations.length} agent${delegations.length>1?'s':''}</div>${delegations.map(d=>{
+    const c=aC(d.agentId); const init=(d.agentName||'?').slice(0,2).toUpperCase();
+    return `<div class="deleg-task" id="dt-${d.agentId}">
+      <div class="dt-hd"><div class="dt-av" style="background:${c.bg};color:${c.text}">${init}</div><span class="dt-nm">${esc(d.agentName)}</span><span class="dt-st dts-pending" id="dts-${d.agentId}">Pending</span></div>
+      <div class="dt-resp" id="dtr-${d.agentId}">Waiting...</div>
+    </div>`;
+  }).join('')}`;
+  area.appendChild(blk); area.scrollTop=99999;
 }
-function updateDt(id,status,text){
-  const s=document.getElementById(`dts-${id}`);const r=document.getElementById(`dtr-${id}`);
-  if(s){const m={pending:'Pending',running:'Running',done:'Done',err:'Error'};s.className=`dt-st dts-${status}`;s.textContent=m[status]||status;}
+
+function updDC(id,status,text){
+  const s=document.getElementById(`dts-${id}`),r=document.getElementById(`dtr-${id}`);
+  if(s){s.className=`dt-st dts-${status==='running'?'running':status==='done'?'done':status==='err'?'err':'pending'}`;s.textContent=status.charAt(0).toUpperCase()+status.slice(1);}
   if(r&&text)r.textContent=text.substring(0,120)+(text.length>120?'…':'');
 }
 
 async function sendTask(){
-  if(!selected||streaming)return;
-  const task=document.getElementById('taskInput').value.trim();if(!task)return;
-  streaming=true;clearDbg();
-  document.getElementById('sendBtn').disabled=true;document.getElementById('sendBtn').textContent='Sending...';
-  document.getElementById('taskInput').value='';autoResize(document.getElementById('taskInput'));
-  setSt('work','Processing...');appendMsg('user',task);appendMsg('agent','',selected.name);
-  ss.msgs++;document.getElementById('ss-msgs').textContent=ss.msgs;
-  let full='',totalC=0;addDbg(`Task → ${selected.id}: ${task.substring(0,40)}…`,'info');
+  if(!curAgent||streaming)return;
+  const task=document.getElementById('taskInp').value.trim(); if(!task)return;
+  streaming=true; clearDbg();
+  document.getElementById('sendBtn').disabled=true; document.getElementById('sendBtn').textContent='Sending...';
+  document.getElementById('taskInp').value=''; autoResize(document.getElementById('taskInp'));
+  setSt('work','Connecting to agent...');
+  appendMsg('user',task); appendMsg('agent','',curAgent.name);
+  ss.msgs++; document.getElementById('ss-msgs').textContent=ss.msgs;
+  addDbg(`→ ${curAgent.id} | ${task.substring(0,40)}…`,'info');
+
+  let full='',totalC=0;
   try{
-    const res=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:selected.id,task})});
+    const res=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:curAgent.id,task})});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
-    const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
+    const rdr=res.body.getReader(),dec=new TextDecoder(); let buf='';
     while(true){
-      const{done,value}=await reader.read();if(done)break;
-      buf+=dec.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
+      const{done,value}=await rdr.read(); if(done)break;
+      buf+=dec.decode(value,{stream:true}); const lines=buf.split('\n'); buf=lines.pop();
       for(const line of lines){
-        if(!line.startsWith('data:'))continue;const raw=line.slice(5).trim();if(raw==='[DONE]'||!raw)continue;
-        let p;try{p=JSON.parse(raw);}catch{continue;}
-        if(p.log){addDbg(p.log,p.log.includes('ERROR')?'err':p.log.includes('✓')?'ok':'');continue;}
-        if(p.type==='delegation_detected'){appendDelegSection(p.agents);ss.dels+=p.agents.length;document.getElementById('ss-del').textContent=ss.dels;continue;}
-        if(p.type==='delegation_start'){updateDt(p.agentId,'running','Running...');continue;}
-        if(p.delegationChunk!==undefined){const el=document.getElementById(`dtr-${p.agentId}`);if(el){const c=typeof p.delegationChunk==='string'?p.delegationChunk:JSON.stringify(p.delegationChunk);el.textContent=(el.textContent==='Waiting...'?'':el.textContent)+c;}continue;}
-        if(p.delegationDone){updateDt(p.agentId,'done',p.response);addDbg(`Done: ${p.agentName}`,'ok');continue;}
-        if(p.delegationError){updateDt(p.agentId,'err',p.delegationError);continue;}
-        if(p.chunk!==undefined){const c=typeof p.chunk==='string'?p.chunk:JSON.stringify(p.chunk);full+=c;totalC+=c.length;updateCurMsg(full);document.getElementById('stbChars').textContent=`${totalC.toLocaleString()} chars`;document.getElementById('ss-chars').textContent=(ss.chars+totalC).toLocaleString();continue;}
-        if(p.error){addDbg(`Error: ${p.error}`,'err');if(!dbgOpen)toggleDbg();finalizeCurMsg(`Error: ${p.error}`);setSt('err','Error occurred');break;}
-        if(p.done){addDbg('Complete','ok');break;}
+        if(!line.startsWith('data:'))continue;
+        const raw=line.slice(5).trim(); if(raw==='[DONE]'||!raw)continue;
+        let p; try{p=JSON.parse(raw);}catch{continue;}
+        if(p.log){
+          const ie=p.log.includes('ERROR')||p.log.includes('✗');
+          const io=p.log.includes('✓')||p.log.includes('OK')||p.log.includes('Accepted');
+          addDbg(p.log,ie?'err':io?'ok':'');
+          if(ie&&!dbgOpen)toggleDbg();
+          if(p.log.includes('thinking')||p.log.includes('waiting'))setSt('work','Agent is thinking...');
+          else if(p.log.includes('Connecting'))setSt('work','Connecting...');
+          continue;
+        }
+        if(p.type==='delegation_detected'){appendDelegBlock(p.agents);ss.dels+=p.agents.length;document.getElementById('ss-del').textContent=ss.dels;continue;}
+        if(p.type==='delegation_start'){updDC(p.agentId,'running','Running...');continue;}
+        if(p.delegationChunk!==undefined){const el=document.getElementById(`dtr-${p.agentId}`);if(el){const c=typeof p.delegationChunk==='string'?p.delegationChunk:'';el.textContent=(el.textContent==='Waiting...'?'':el.textContent)+c;}continue;}
+        if(p.delegationDone){updDC(p.agentId,'done',p.response);addDbg(`✓ ${p.agentName} done`,'ok');continue;}
+        if(p.delegationError){updDC(p.agentId,'err',p.delegationError);continue;}
+        if(p.chunk!==undefined){
+          const c=typeof p.chunk==='string'?p.chunk:'';
+          full+=c; totalC+=c.length;
+          updateCurMsg(full);
+          document.getElementById('stbChars').textContent=`${totalC.toLocaleString()} chars`;
+          ss.chars+=c.length; document.getElementById('ss-chars').textContent=ss.chars.toLocaleString();
+          setSt('work','Streaming response...');
+          continue;
+        }
+        if(p.error){addDbg(`Error: ${p.error}`,'err');if(!dbgOpen)toggleDbg();finalizeCurMsg(`Error: ${p.error}`);setSt('err','Error — see debug log');break;}
+        if(p.done){addDbg('Task complete','ok');break;}
       }
     }
     if(!full.startsWith('Error:')){
-      finalizeCurMsg(full||'(empty response)');setSt('done',`Completed · ${ts()}`);ss.chars+=totalC;
-      await fetch('/api/tasks/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:`${Date.now()}-${Math.random().toString(36).slice(2,5)}`,agentId:selected.id,agentName:selected.name,task,response:full,status:'done',createdAt:new Date().toISOString()})}).catch(()=>{});
-      await reloadTasks();renderDash();
+      finalizeCurMsg(full);
+      setSt('done',`Done · ${ts()}`);
+      await reloadTasks(); renderDash();
     }
   }catch(e){addDbg(`Fatal: ${e.message}`,'err');if(!dbgOpen)toggleDbg();finalizeCurMsg(`Error: ${e.message}`);setSt('err','Fatal error');}
-  streaming=false;document.getElementById('sendBtn').disabled=false;document.getElementById('sendBtn').textContent='Send task';
+  streaming=false;
+  document.getElementById('sendBtn').disabled=false;
+  document.getElementById('sendBtn').textContent='Send task';
 }
 
 function clearConv(){
   document.getElementById('chatArea').innerHTML='<div class="chat-empty" id="chatEmpty"><div class="ce-ill">&#x1F4AC;</div><div class="ce-ttl">Ready for your task</div><div class="ce-sub">Type a task below. Use <strong>@AgentName</strong> to automatically delegate to other agents.</div></div>';
-  setSt('idle','Idle');document.getElementById('stbChars').textContent='';
-  ss={msgs:0,chars:0,dels:0};['ss-msgs','ss-chars','ss-del'].forEach(id=>{document.getElementById(id).textContent='0';});clearDbg();
+  setSt('idle','Idle'); document.getElementById('stbChars').textContent='';
+  ss={msgs:0,chars:0,dels:0}; ['ss-msgs','ss-chars','ss-del'].forEach(id=>{document.getElementById(id).textContent='0';});
+  clearDbg();
 }
 
+// ══════════════════════════════════════
+// WORKSPACE FILE MODAL
+// ══════════════════════════════════════
+async function openWsModal(agentId){
+  if(!agentId)return; wsAgentId=agentId;
+  const ag=agents.find(a=>a.id===agentId);
+  document.getElementById('wsMName').textContent=ag?.name||agentId;
+  document.getElementById('wsFb').style.display='none';
+  document.getElementById('wsModal').classList.add('open');
+  document.getElementById('wsTabRow').innerHTML='<span style="font-size:.7rem;color:var(--text3)">Loading...</span>';
+  document.getElementById('wsEditor').value='';
+  try{
+    wsData=await fetch(`/api/agents/${agentId}/workspace`).then(r=>r.json());
+    document.getElementById('wsTabRow').innerHTML=WS_FILES.map((f,i)=>{
+      const k=f.replace('.md','');
+      return `<button class="ws-tab${i===0?' act':''}" onclick="showWsTab('${f}',this)">${WS_ICONS[k]||'📄'} ${f}</button>`;
+    }).join('');
+    showWsTab(WS_FILES[0]);
+  }catch(e){document.getElementById('wsEditor').value=`Error: ${e.message}`;}
+}
+
+function showWsTab(fname,btn){
+  wsCurrentFile=fname;
+  if(btn){document.querySelectorAll('.ws-tab').forEach(b=>b.classList.remove('act'));btn.classList.add('act');}
+  const f=wsData?.files?.[fname];
+  document.getElementById('wsFileDesc').textContent=WS_DESC[fname]||'';
+  document.getElementById('wsEditor').value=f?.content||'';
+}
+
+async function saveWsFile(){
+  if(!wsAgentId||!wsCurrentFile)return;
+  const content=document.getElementById('wsEditor').value||'';
+  const fb=document.getElementById('wsFb');
+  try{
+    const res=await fetch(`/api/agents/${wsAgentId}/workspace/${wsCurrentFile}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content})});
+    const d=await res.json();
+    showFb(fb,res.ok?`Saved ${wsCurrentFile} (${d.size} chars).`:`Error: ${d.error}`,res.ok?'fb-ok':'fb-err');
+    if(wsData?.files?.[wsCurrentFile])wsData.files[wsCurrentFile].content=content;
+    await loadAgents();
+  }catch(e){showFb(fb,`Error: ${e.message}`,'fb-err');}
+}
+function closeWsModal(){document.getElementById('wsModal').classList.remove('open');wsAgentId=null;wsCurrentFile=null;wsData=null;}
+
+// ══════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════
 async function reloadTasks(){
   try{allTasks=await fetch('/api/tasks').then(r=>r.json());}catch{allTasks=[];}
-  const b=document.getElementById('histBadge');if(b){b.textContent=allTasks.length||'';b.style.display=allTasks.length?'':'none';}
+  const b=document.getElementById('histBadge');
+  if(b){b.textContent=allTasks.length||'';b.style.display=allTasks.length?'':'none';}
 }
 async function loadHistory(){await reloadTasks();renderHistory();}
+
 function renderHistory(){
   const el=document.getElementById('histList');const cnt=document.getElementById('histCount');
   let tasks=allTasks;
@@ -996,58 +1268,163 @@ function renderHistory(){
     </div>`;
   }).join('');
 }
+
 function renderHistAgentBtns(){const el=document.getElementById('histAgentBtns');if(!el)return;el.innerHTML=agents.map(a=>`<button class="hf-btn" onclick="filterAgent('${a.id}',this)">${esc(a.name)}</button>`).join('');}
 function filterAgent(id,btn){histFilter=id;document.querySelectorAll('.hf-btn').forEach(b=>b.classList.remove('act'));if(btn)btn.classList.add('act');renderHistory();}
 function filterHistory(){histQ=document.getElementById('histSearch').value.toLowerCase();renderHistory();}
-function replayTask(id){const t=allTasks.find(x=>x.id===id);if(!t)return;const ag=agents.find(a=>a.id===t.agentId);if(ag)selectAgent(ag.id);appendMsg('agent',t.response||'(empty)',t.agentName);finalizeCurMsg(t.response||'(empty)');setSt('done',`Loaded from history · ${new Date(t.createdAt).toLocaleString()}`);showPanel('task');}
+
+function replayTask(id){
+  const t=allTasks.find(x=>x.id===id); if(!t)return;
+  const ag=agents.find(a=>a.id===t.agentId); if(ag)selectAgent(ag.id);
+  appendMsg('agent',t.response||'(empty)',t.agentName);
+  finalizeCurMsg(t.response||'(empty)');
+  setSt('done',`Loaded from history · ${new Date(t.createdAt).toLocaleString()}`);
+  showPanel('task');
+}
 async function clearHistory(){if(!confirm('Delete all history? This cannot be undone.'))return;await fetch('/api/tasks',{method:'DELETE'});allTasks=[];renderHistory();renderDash();const b=document.getElementById('histBadge');if(b){b.textContent='';b.style.display='none';}}
 function exportHist(){const b=new Blob([JSON.stringify(allTasks,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`nexus-tasks-${Date.now()}.json`;a.click();}
 
-function setSoul(k){document.getElementById('cSoul').value=SOULS[k]||'';updatePreview();}
+// ══════════════════════════════════════
+// AGENT STUDIO
+// ══════════════════════════════════════
+function switchStab(name,btn){
+  document.querySelectorAll('.stab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#studioTabs .stab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`stab-${name}`).classList.add('active');
+  if(btn)btn.classList.add('active');
+}
+
+function setSoul(k){document.getElementById('cSoul').value=SOULS[k]||'';updatePreview();switchStab('soul',document.querySelectorAll('#studioTabs .stab')[1]);}
+
 function updatePreview(){
   const name=document.getElementById('cName').value.trim()||'—';
   const soul=document.getElementById('cSoul').value||'Waiting for input...';
+  const agents_md=document.getElementById('cAgents').value;
+  const identity_md=document.getElementById('cIdentity').value;
+  const user_md=document.getElementById('cUser').value;
+  const tools_md=document.getElementById('cTools').value;
   const model=(document.querySelector('input[name="mdl"]:checked')?.value||'').split('/').pop();
   const id=name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-  document.getElementById('pv-id').textContent=id||'—';document.getElementById('pv-model').textContent=model;
-  document.getElementById('pvSoul').textContent=soul.substring(0,350)+(soul.length>350?'\n…':'');
+  document.getElementById('pv-id').textContent=id||'—';
+  document.getElementById('pv-model').textContent=model;
+  document.getElementById('pv-emoji').textContent=selEmoji;
   document.getElementById('pv-ws').textContent=`~/.openclaw/workspace-${id||'???'}`;
+  document.getElementById('pvSoul').textContent=soul.substring(0,350)+(soul.length>350?'\n…':'');
+  const setF=(k,has)=>{const el=document.getElementById(`pvf-${k}`);if(el){el.className=has?'pvf-ok':'pvf-miss';el.textContent=has?'Ready':'Empty';}};
+  setF('soul',!!soul&&soul!=='Waiting for input...');
+  setF('agents',!!agents_md); setF('identity',!!identity_md); setF('user',!!user_md); setF('tools',!!tools_md);
   document.querySelectorAll('.model-opt').forEach(c=>c.classList.toggle('sel',c.querySelector('input')?.checked));
 }
+
 async function createAgent(){
-  const name=document.getElementById('cName').value.trim();const model=document.querySelector('input[name="mdl"]:checked')?.value;const soul=document.getElementById('cSoul').value.trim();
-  const btn=document.getElementById('cBtn');const fb=document.getElementById('cFb');
-  if(!name||!soul)return showFb(fb,'Agent name and soul.md are required.','fb-err');
+  const name=document.getElementById('cName').value.trim();
+  const model=document.querySelector('input[name="mdl"]:checked')?.value;
+  const soul=document.getElementById('cSoul').value.trim();
+  const agentsmd=document.getElementById('cAgents').value.trim();
+  const identitymd=document.getElementById('cIdentity').value.trim()||`# Identity\n\nName: ${document.getElementById('cIdName').value.trim()||name}\nRole: ${name}\nVibe: ${document.getElementById('cTheme').value.trim()||'Helpful assistant'}\nEmoji: ${selEmoji}`;
+  const usermd=document.getElementById('cUser').value.trim();
+  const toolsmd=document.getElementById('cTools').value.trim();
+  const btn=document.getElementById('cBtn'),fb=document.getElementById('cFb');
+  if(!name||!soul)return showFb(fb,'Agent name and SOUL.md are required.','fb-err');
   btn.disabled=true;btn.textContent='Creating...';fb.style.display='none';
   try{
-    const res=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model,soul})});const d=await res.json();
-    if(res.ok){showFb(fb,`Agent "${d.entry?.id}" created successfully.`,'fb-ok');document.getElementById('cName').value='';document.getElementById('cSoul').value='';updatePreview();await loadAgents();}
-    else showFb(fb,`Error: ${d.error||'Create failed'}`,'fb-err');
+    const res=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model,soul,agentsmd,identitymd,usermd,toolsmd})});
+    const d=await res.json();
+    if(res.ok){
+      showFb(fb,`Agent "${d.id}" created successfully.`,'fb-ok');
+      // Update identity if provided
+      const idname=document.getElementById('cIdName').value.trim();
+      const theme=document.getElementById('cTheme').value.trim();
+      if(idname||theme||selEmoji!=='🤖'){
+        await fetch(`/api/agents/${d.id}/identity`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:idname||name,emoji:selEmoji,theme})}).catch(()=>{});
+      }
+      await loadAgents();
+    }else showFb(fb,`Error: ${d.error||'Create failed'}`,'fb-err');
   }catch{showFb(fb,'Network error — check gateway connection.','fb-err');}
-  finally{btn.disabled=false;btn.textContent='Create agent';}
+  finally{btn.disabled=false;btn.textContent='✓ Create agent';}
 }
 
+function clearStudio(){
+  ['cName','cSoul','cAgents','cIdentity','cUser','cTools','cIdName','cTheme'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  selEmoji='🤖'; document.querySelectorAll('.emoji-btn').forEach(e=>e.classList.remove('sel'));
+  document.getElementById('cFb').style.display='none'; updatePreview();
+}
+
+// Emoji grid
+function initEmojiGrid(){
+  const emojis=['🤖','🧪','💻','🔍','📊','✍️','🎯','🚀','🛡️','⚡','🔧','🎨','📱','🌐','🤝','💡','🔬','📌','🗂️','🎭','🧠','⚙️','🔑','📡','🏗️','🦾','💼','🌟','🎪','🔮'];
+  const g=document.getElementById('emojiGrid'); if(!g)return;
+  g.innerHTML=emojis.map(e=>`<button class="emoji-btn" onclick="pickEmoji('${e}')" style="width:30px;height:30px;border-radius:7px;border:1.5px solid var(--border2);background:var(--surface);cursor:pointer;font-size:.9rem;transition:all .15s;display:flex;align-items:center;justify-content:center${e===selEmoji?';border-color:var(--accent);background:var(--accent-l)':''}">${e}</button>`).join('');
+}
+function pickEmoji(e){
+  selEmoji=e;
+  document.querySelectorAll('#emojiGrid button').forEach(b=>{
+    b.style.borderColor=b.textContent===e?'var(--accent)':'var(--border2)';
+    b.style.background=b.textContent===e?'var(--accent-l)':'var(--surface)';
+  });
+  updatePreview();
+}
+
+// ══════════════════════════════════════
+// MANAGE
+// ══════════════════════════════════════
 function renderManage(){
   const el=document.getElementById('manageGrid');
   if(!agents.length){el.innerHTML='<div style="font-size:.73rem;color:var(--text3);padding:.5rem 0">No agents found. Create one to get started.</div>';return;}
   el.innerHTML=agents.map(a=>{
     const c=aC(a.id);const ok=a.inConfig&&a.workspaceOk;const init=(a.name||'?').slice(0,2).toUpperCase();
-    return `<div class="manage-card"><div class="mc-t"><div class="mc-av" style="background:${c.bg};color:${c.text}">${init}</div><div><div class="mc-nm">${esc(a.name)}</div><div class="mc-id">${a.id}</div></div></div>
-      <div class="mc-badges"><span class="mc-bdg ${ok?'mb-ok':'mb-err'}">${ok?'Config OK':'Config Error'}</span><span class="mc-bdg ${a.hasSoul?'mb-ok':'mb-err'}">${a.hasSoul?'Soul OK':'Soul Missing'}</span><span class="mc-bdg mb-info">${(a.model||'').split('/').pop()}</span></div>
-      <div class="mc-acts"><button class="mc-btn mc-pri" onclick="selectAgent('${a.id}');showPanel('task')">Assign task</button><button class="mc-btn mc-gh" onclick="openSoulModal('${a.id}','${esc(a.name)}')">Edit soul</button><a class="mc-btn mc-gh" href="http://127.0.0.1:18789/chat?session=agent:${a.id}:main" target="_blank">OpenClaw &#x2197;</a></div>
+    const files=a.files||{};
+    return `<div class="manage-card">
+      <div class="mc-t"><div class="mc-av" style="background:${c.bg};color:${c.text}">${a.identity?.emoji||init}</div><div><div class="mc-nm">${esc(a.name)}</div><div class="mc-id">${a.id}</div></div></div>
+      <div class="mc-badges">
+        <span class="mc-bdg ${ok?'mb-ok':'mb-err'}">${ok?'Config OK':'Config Error'}</span>
+        <span class="mc-bdg ${files['SOUL.md']?'mb-ok':'mb-err'}">${files['SOUL.md']?'Soul OK':'Soul Missing'}</span>
+        <span class="mc-bdg ${files['AGENTS.md']?'mb-ok':'mb-warn'}">${files['AGENTS.md']?'Rules OK':'Rules Missing'}</span>
+        <span class="mc-bdg mb-info">${(a.model||'').split('/').pop()}</span>
+      </div>
+      <div class="mc-files">${['SOUL.md','AGENTS.md','IDENTITY.md','USER.md','TOOLS.md','HEARTBEAT.md'].map(f=>`<div class="mcf ${files[f]?'mcf-ok':'mcf-miss'}">${f.replace('.md','')}</div>`).join('')}</div>
+      <div class="mc-acts">
+        <button class="mc-btn mc-pri" onclick="selectAgent('${a.id}');showPanel('task')">Assign task</button>
+        <button class="mc-btn mc-gh" onclick="openWsModal('${a.id}')">&#x1F4C1; Files</button>
+        <button class="mc-btn mc-gh" onclick="openSoulModal('${a.id}','${esc(a.name)}')">Edit soul</button>
+        <a class="mc-btn mc-gh" href="http://127.0.0.1:18789/chat?session=agent:${a.id}:main" target="_blank">OpenClaw &#x2197;</a>
+        <button class="mc-btn mc-danger" onclick="removeAgent('${a.id}','${esc(a.name)}')">Remove</button>
+      </div>
     </div>`;
   }).join('');
 }
-async function fixAll(){const fb=document.getElementById('manageFb');showFb(fb,'Running fix...','fb-warn');try{const d=await fetch('/api/fix-all',{method:'POST'}).then(r=>r.json());showFb(fb,`Done: ${d.message}`,'fb-ok');await loadAgents();}catch{showFb(fb,'Fix failed.','fb-err');}}
 
+async function fixAll(){
+  const fb=document.getElementById('manageFb');
+  showFb(fb,'Running fix...','fb-warn');
+  try{const d=await fetch('/api/fix-all',{method:'POST'}).then(r=>r.json());showFb(fb,`Done: ${d.message}`,'fb-ok');await loadAgents();}
+  catch{showFb(fb,'Fix failed.','fb-err');}
+}
+
+async function removeAgent(id,name){
+  if(!confirm(`Remove "${name}" from config?\nWorkspace files are not deleted.`))return;
+  await fetch(`/api/agents/${id}`,{method:'DELETE'}); await loadAgents();
+}
+
+// ══════════════════════════════════════
+// SOUL MODAL (quick edit)
+// ══════════════════════════════════════
 function openSoulModal(id,name){soulId=id;document.getElementById('soulMName').textContent=name;document.getElementById('soulMText').value='';document.getElementById('soulFb').style.display='none';document.getElementById('soulModal').classList.add('open');}
 function closeSoulModal(){document.getElementById('soulModal').classList.remove('open');soulId=null;}
 async function submitSoul(){
   const soul=document.getElementById('soulMText').value.trim();const wg=document.getElementById('soulGlobal').checked;const fb=document.getElementById('soulFb');
   if(!soul)return showFb(fb,'Soul content is empty.','fb-err');
-  try{const res=await fetch(`/api/agents/${encodeURIComponent(soulId)}/soul`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul,writeGlobal:wg})});const d=await res.json();showFb(fb,res.ok?d.message:`Error: ${d.error}`,res.ok?'fb-ok':'fb-err');if(res.ok)setTimeout(closeSoulModal,1500);}catch{showFb(fb,'Network error.','fb-err');}
+  try{
+    const res=await fetch(`/api/agents/${encodeURIComponent(soulId)}/workspace/SOUL.md`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:soul})});
+    const d=await res.json();
+    showFb(fb,res.ok?`SOUL.md saved (${d.size} chars).`:`Error: ${d.error}`,res.ok?'fb-ok':'fb-err');
+    if(res.ok)setTimeout(closeSoulModal,1500);
+  }catch{showFb(fb,'Network error.','fb-err');}
 }
 
+// ══════════════════════════════════════
+// NETWORK MODAL
+// ══════════════════════════════════════
 async function openNetModal(){
   document.getElementById('netModal').classList.add('open');const el=document.getElementById('netContent');el.innerHTML='<div style="color:var(--text3);font-size:.73rem">Loading...</div>';
   try{
@@ -1063,12 +1440,31 @@ async function openNetModal(){
 function closeNetModal(){document.getElementById('netModal').classList.remove('open');}
 function copyText(text,btn){navigator.clipboard.writeText(text).then(()=>{const o=btn.textContent;btn.textContent='Copied!';btn.style.color='var(--emerald)';setTimeout(()=>{btn.textContent=o;btn.style.color='';},2000);});}
 
+// ══════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════
 function showFb(el,msg,cls){el.textContent=msg;el.className=`fb ${cls}`;el.style.display='block';}
-document.getElementById('soulModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeSoulModal();});
-document.getElementById('netModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeNetModal();});
+
+// Modal close on overlay click
+['wsModal','soulModal','netModal'].forEach(id=>document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)e.target.classList.remove('open');}));
+
+// Real-time SSE for cross-device updates
 function connectSSE(){const es=new EventSource('/api/events');es.onmessage=e=>{try{const d=JSON.parse(e.data);if(d.type==='task_saved'){reloadTasks().then(renderDash);}}catch{}};es.onerror=()=>setTimeout(connectSSE,5000);}
+
 document.querySelectorAll('.model-opt').forEach(c=>c.addEventListener('change',updatePreview));
-(async()=>{await checkGateway();await loadAgents();await reloadTasks();renderDash();connectSSE();setInterval(checkGateway,30000);})();
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+(async()=>{
+  initEmojiGrid();
+  await checkGateway();
+  await loadAgents();
+  await reloadTasks();
+  renderDash();
+  connectSSE();
+  setInterval(checkGateway,30000);
+})();
 </script>
 </body>
 </html>
