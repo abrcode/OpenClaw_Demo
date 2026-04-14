@@ -1,38 +1,181 @@
+/**
+ * Nexus.AI Portal — server.js
+ * ─────────────────────────────────────────────────────────────
+ * Full per-agent OAuth2 provider system
+ *
+ * Storage layout (~/.openclaw/):
+ *   portal-credentials.json  ← AES-256-GCM encrypted tokens, per agent
+ *   portal-oauth-state.json  ← in-flight OAuth CSRF state (30-min TTL)
+ *   portal-tasks.json        ← task history
+ *
+ * OAuth config → ~/.openclaw/portal-config.json (NOT openclaw.json):
+ *   "portal": {
+ *     "baseUrl":  "http://localhost:3000",
+ *     "github":   { "clientId": "...", "clientSecret": "..." },
+ *     "gmail":    { "clientId": "...", "clientSecret": "..." }
+ *   }
+ *
+ * GitHub App:   https://github.com/settings/developers
+ *   Callback:   http://localhost:3000/api/oauth/github/callback
+ *
+ * Google App:   https://console.cloud.google.com/apis/credentials
+ *   Callback:   http://localhost:3000/api/oauth/google/callback
+ *   Scopes:     gmail.readonly, userinfo.email, userinfo.profile
+ */
+
+'use strict';
+
 const express    = require('express');
 const bodyParser = require('body-parser');
 const fs         = require('fs');
 const path       = require('path');
 const os         = require('os');
+const crypto     = require('crypto');
+const http       = require('http');
 const { exec }   = require('child_process');
 const WebSocket  = require('ws');
-const http       = require('http');
 
 const app    = express();
 const server = http.createServer(app);
-const PORT   = 3000;
+const PORT   = process.env.PORT || 3000;
 const BIND   = '0.0.0.0';
 
 app.use(bodyParser.json({ limit: '4mb' }));
 app.use(express.static('public'));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
 
-// ─── PATHS ────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// PATHS
+// ════════════════════════════════════════════════════════════════
 const HOME        = os.homedir();
 const OC          = path.join(HOME, '.openclaw');
 const AGENTS_ROOT = path.join(OC, 'agents');
 const CONFIG_PATH = path.join(OC, 'openclaw.json');
 const TASKS_FILE  = path.join(OC, 'portal-tasks.json');
+const CREDS_FILE  = path.join(OC, 'portal-credentials.json');
+const STATE_FILE         = path.join(OC, 'portal-oauth-state.json');
+const PORTAL_CONFIG_PATH = path.join(OC, 'portal-config.json');
 const OC_WS_URL   = 'ws://127.0.0.1:18789';
+const WS_FILES    = ['SOUL.md','AGENTS.md','IDENTITY.md','USER.md','TOOLS.md','HEARTBEAT.md','MEMORY.md'];
 
-const WORKSPACE_FILES = ['SOUL.md','AGENTS.md','IDENTITY.md','USER.md','TOOLS.md','HEARTBEAT.md','MEMORY.md'];
+// Ensure OC dir exists
+if (!fs.existsSync(OC)) fs.mkdirSync(OC, { recursive: true });
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// ENCRYPTION  — AES-256-GCM, machine-derived key
+// ════════════════════════════════════════════════════════════════
+const ENC_KEY = crypto.scryptSync(
+    `nexus-portal-v2-${os.hostname()}-${os.userInfo().username}`,
+    'nexus-salt-2026',
+    32
+);
+
+function enc(plain) {
+    if (!plain) return '';
+    const iv     = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
+    const data   = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+    const tag    = cipher.getAuthTag();
+    return `${iv.toString('hex')}.${data.toString('hex')}.${tag.toString('hex')}`;
+}
+
+function dec(cipher) {
+    if (!cipher) return null;
+    try {
+        const [ivH, dataH, tagH] = cipher.split('.');
+        const iv  = Buffer.from(ivH, 'hex');
+        const dat = Buffer.from(dataH, 'hex');
+        const tag = Buffer.from(tagH, 'hex');
+        const d   = crypto.createDecipheriv('aes-256-gcm', ENC_KEY, iv);
+        d.setAuthTag(tag);
+        return Buffer.concat([d.update(dat), d.final()]).toString('utf8');
+    } catch { return null; }
+}
+
+// ════════════════════════════════════════════════════════════════
+// CREDENTIAL STORE  — per agent, encrypted
+// ════════════════════════════════════════════════════════════════
+const readCreds  = () => { try { return JSON.parse(fs.readFileSync(CREDS_FILE, 'utf8')); } catch { return {}; } };
+const writeCreds = (d) => fs.writeFileSync(CREDS_FILE, JSON.stringify(d, null, 2), 'utf8');
+
+function getAgentCreds(agentId) { return readCreds()[agentId] || {}; }
+
+function setAgentService(agentId, service, payload) {
+    const all = readCreds();
+    if (!all[agentId]) all[agentId] = {};
+    all[agentId][service] = payload;
+    writeCreds(all);
+}
+
+function removeAgentService(agentId, service) {
+    const all = readCreds();
+    if (all[agentId]?.[service]) {
+        delete all[agentId][service];
+        writeCreds(all);
+    }
+}
+
+/** Safe view — never exposes tokens */
+function safeCredView(agentId) {
+    const c = getAgentCreds(agentId);
+    const out = {};
+    if (c.github) out.github = {
+        connected:    true,
+        login:        c.github.login,
+        name:         c.github.name,
+        avatar_url:   c.github.avatar_url,
+        scopes:       c.github.scopes || 'repo,user:email',
+        connected_at: c.github.connected_at,
+    };
+    if (c.gmail) out.gmail = {
+        connected:    true,
+        email:        c.gmail.email,
+        name:         c.gmail.name,
+        picture:      c.gmail.picture,
+        connected_at: c.gmail.connected_at,
+        expires_at:   c.gmail.expires_at,
+    };
+    return out;
+}
+
+// ════════════════════════════════════════════════════════════════
+// OAUTH STATE STORE  — CSRF protection, 30-min TTL
+// ════════════════════════════════════════════════════════════════
+const readStates  = () => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return {}; } };
+const writeStates = (d) => fs.writeFileSync(STATE_FILE, JSON.stringify(d, null, 2), 'utf8');
+
+function createState(agentId, service) {
+    const token  = crypto.randomBytes(32).toString('hex');
+    const states = readStates();
+    // prune expired
+    const cutoff = Date.now() - 30 * 60_000;
+    for (const k of Object.keys(states)) if (states[k].ts < cutoff) delete states[k];
+    states[token] = { agentId, service, ts: Date.now() };
+    writeStates(states);
+    return token;
+}
+
+function consumeState(token) {
+    const states = readStates();
+    const entry  = states[token];
+    if (!entry || Date.now() - entry.ts > 30 * 60_000) {
+        if (entry) { delete states[token]; writeStates(states); }
+        return null;
+    }
+    delete states[token];
+    writeStates(states);
+    return entry;
+}
+
+// ════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════
 const isDir  = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
 const readF  = p => { try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } };
 const writeF = (p, c) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, c, 'utf8'); };
@@ -42,16 +185,17 @@ function getAgentDirs() {
     return fs.readdirSync(AGENTS_ROOT).filter(e => !e.startsWith('.') && isDir(path.join(AGENTS_ROOT, e)));
 }
 
-function readConfig() {
-    try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { return {}; }
-}
+function readConfig() { try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { return {}; } }
 
 function writeConfig(cfg) {
-    const bak = `${CONFIG_PATH}.bak.${Date.now()}`;
-    if (fs.existsSync(CONFIG_PATH)) fs.copyFileSync(CONFIG_PATH, bak);
-    const baks = fs.readdirSync(path.dirname(CONFIG_PATH))
-        .filter(f => f.startsWith('openclaw.json.bak.')).sort();
-    baks.slice(0, -5).forEach(b => { try { fs.unlinkSync(path.join(path.dirname(CONFIG_PATH), b)); } catch {} });
+    if (fs.existsSync(CONFIG_PATH)) {
+        const bak = `${CONFIG_PATH}.bak.${Date.now()}`;
+        fs.copyFileSync(CONFIG_PATH, bak);
+        // keep last 5 backups
+        fs.readdirSync(path.dirname(CONFIG_PATH))
+            .filter(f => f.startsWith('openclaw.json.bak.')).sort()
+            .slice(0, -5).forEach(b => { try { fs.unlinkSync(path.join(path.dirname(CONFIG_PATH), b)); } catch {} });
+    }
     const { _path, ...clean } = cfg;
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(clean, null, 2), 'utf8');
 }
@@ -61,27 +205,35 @@ function getGatewayToken() {
     return cfg?.gateway?.auth?.token || cfg?.gateway?.auth?.tokens?.[0] || '';
 }
 
+function getPortalConfig() {
+    try { return JSON.parse(fs.readFileSync(PORTAL_CONFIG_PATH, 'utf8')); } catch { return {}; }
+}
+
 function getLocalIPs() {
-    const nets = os.networkInterfaces(), ips = [];
-    for (const name of Object.keys(nets))
-        for (const net of nets[name])
-            if (net.family === 'IPv4' && !net.internal) ips.push({ name, address: net.address });
+    const ips = [];
+    for (const [, nets] of Object.entries(os.networkInterfaces()))
+        for (const n of nets) if (n.family === 'IPv4' && !n.internal) ips.push(n.address);
     return ips;
 }
 
 function runCmd(cmd) {
     return new Promise(r => exec(cmd, { timeout: 25000 }, (e, o, s) =>
-        r({ ok: !e, stdout: o?.trim(), stderr: s?.trim(), error: e?.message })));
+        r({ ok: !e, stdout: o?.trim() || '', stderr: s?.trim() || '', error: e?.message })));
 }
 
-function getAgentWorkspace(agentId) {
-    const cfg = readConfig();
-    const entry = cfg?.agents?.list?.find(a => a.id === agentId);
-    if (entry?.workspace) return entry.workspace.replace(/^~/, HOME);
-    return path.join(OC, `workspace-${agentId}`);
+function getAgentWorkspace(id) {
+    const e = readConfig()?.agents?.list?.find(a => a.id === id);
+    if (e?.workspace) return e.workspace.replace(/^~/, HOME);
+    return path.join(OC, `workspace-${id}`);
 }
 
-// ─── SSE BROADCAST ────────────────────────────────────────────────────────────
+function baseUrl() {
+    return getPortalConfig().baseUrl || `http://localhost:${PORT}`;
+}
+
+// ════════════════════════════════════════════════════════════════
+// SSE BROADCAST
+// ════════════════════════════════════════════════════════════════
 const sseClients = new Set();
 function broadcast(data) {
     const msg = `data: ${JSON.stringify(data)}\n\n`;
@@ -92,540 +244,837 @@ app.get('/api/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
-    res.write('data: {"type":"connected"}\n\n');
+    res.write('data: {"type":"hello"}\n\n');
     sseClients.add(res);
-    req.on('close', () => sseClients.delete(res));
+    const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch { sseClients.delete(res); clearInterval(hb); } }, 20000);
+    req.on('close', () => { sseClients.delete(res); clearInterval(hb); });
 });
 
-// ─── DELEGATION DETECTION ─────────────────────────────────────────────────────
-function detectDelegation(task, allAgents) {
-    const pattern = /@([a-zA-Z][a-zA-Z0-9_-]*)/g;
-    const results = []; let m;
-    while ((m = pattern.exec(task)) !== null) {
-        const id = m[1].toLowerCase();
-        const ag = allAgents.find(a =>
-            a.id.toLowerCase() === id ||
-            a.name.toLowerCase() === id ||
-            a.name.toLowerCase().replace(/\s+/g, '') === id
-        );
-        if (ag) results.push({ agent: ag, mention: m[0] });
-    }
-    return results;
+// ════════════════════════════════════════════════════════════════
+// POPUP HTML HELPERS
+// ════════════════════════════════════════════════════════════════
+function popupHtml(err, data) {
+    const payload = err
+        ? `{type:'oauth_error',error:${JSON.stringify(String(err))}}`
+        : `{type:'oauth_success',data:${JSON.stringify(data)}}`;
+    const msg = err
+        ? `<p style="color:#ef4444;font-family:sans-serif;padding:24px">❌ ${String(err)}</p>`
+        : `<p style="color:#10b981;font-family:sans-serif;padding:24px">✅ Connected! Closing window…</p>`;
+    return `<!DOCTYPE html><html><head><title>OAuth</title></head><body>${msg}<script>
+try{window.opener.postMessage(${payload},'*');}catch(e){}
+setTimeout(()=>window.close(),${err?2500:900});
+</script></body></html>`;
 }
 
-// ─── OPENCLAW WS CLIENT ───────────────────────────────────────────────────────
-// Fixed: proper lifecycle handling, no premature timeout, full stream support
+// ════════════════════════════════════════════════════════════════
+// TOKEN REFRESH HELPERS
+// ════════════════════════════════════════════════════════════════
+async function refreshGoogleToken(agentId) {
+    const creds = getAgentCreds(agentId);
+    if (!creds.gmail?.refresh_token_enc) throw new Error('No refresh token stored');
+    const rt  = dec(creds.gmail.refresh_token_enc);
+    if (!rt) throw new Error('Failed to decrypt refresh token');
+    const pc  = getPortalConfig();
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    new URLSearchParams({
+            refresh_token: rt,
+            client_id:     pc.gmail.clientId,
+            client_secret: pc.gmail.clientSecret,
+            grant_type:    'refresh_token',
+        }),
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error_description || d.error);
+    setAgentService(agentId, 'gmail', {
+        ...creds.gmail,
+        access_token_enc: enc(d.access_token),
+        expires_at:       Date.now() + (d.expires_in || 3600) * 1000,
+    });
+    return d.access_token;
+}
+
+async function getGoogleToken(agentId) {
+    const creds = getAgentCreds(agentId);
+    if (!creds.gmail) throw new Error(`Agent ${agentId} has no Gmail connection`);
+    if (creds.gmail.expires_at && Date.now() > creds.gmail.expires_at - 300_000)
+        return refreshGoogleToken(agentId);
+    const t = dec(creds.gmail.access_token_enc);
+    if (!t) throw new Error('Failed to decrypt Gmail token');
+    return t;
+}
+
+function getGitHubToken(agentId) {
+    const creds = getAgentCreds(agentId);
+    if (!creds.github) throw new Error(`Agent ${agentId} has no GitHub connection`);
+    const t = dec(creds.github.access_token_enc);
+    if (!t) throw new Error('Failed to decrypt GitHub token');
+    return t;
+}
+
+// ════════════════════════════════════════════════════════════════
+// TOOLS.md AUTO-PATCH  — inject connection context
+// ════════════════════════════════════════════════════════════════
+function patchToolsMd(agentId, service, info) {
+    const ws   = getAgentWorkspace(agentId);
+    const dest = path.join(ws, 'TOOLS.md');
+    let body   = readF(dest) || '# Tools & Environment\n\n';
+
+    const sLabel  = service === 'github' ? 'GitHub' : 'Gmail';
+    const marker  = `<!-- NEXUS:${service.toUpperCase()}:START -->`;
+    const endmark = `<!-- NEXUS:${service.toUpperCase()}:END -->`;
+
+    let block = `${marker}\n## ${sLabel} (Connected via Nexus.AI)\n`;
+    if (service === 'github') {
+        block += `- Account: @${info.login} (${info.name || info.login})\n`;
+        block += `- Scope: repo, user:email, read:user\n`;
+        block += `- Use this account for all GitHub operations.\n`;
+    } else {
+        block += `- Account: ${info.email} (${info.name || ''})\n`;
+        block += `- Scope: gmail.readonly, userinfo.email\n`;
+        block += `- Use this account for all Gmail/email operations.\n`;
+    }
+    block += `${endmark}\n`;
+
+    // remove old block
+    const re = new RegExp(`${marker}[\\s\\S]*?${endmark}\\n?`, 'g');
+    body = body.replace(re, '').trimEnd() + '\n\n' + block;
+
+    writeF(dest, body.trim() + '\n');
+    // mirror to agentDir
+    writeF(path.join(AGENTS_ROOT, agentId, 'TOOLS.md'), body.trim() + '\n');
+}
+
+function unpatchToolsMd(agentId, service) {
+    const ws    = getAgentWorkspace(agentId);
+    const dest  = path.join(ws, 'TOOLS.md');
+    const marker  = `<!-- NEXUS:${service.toUpperCase()}:START -->`;
+    const endmark = `<!-- NEXUS:${service.toUpperCase()}:END -->`;
+    let body = readF(dest);
+    if (!body) return;
+    const re = new RegExp(`${marker}[\\s\\S]*?${endmark}\\n?`, 'g');
+    body = body.replace(re, '').trim() + '\n';
+    writeF(dest, body);
+    writeF(path.join(AGENTS_ROOT, agentId, 'TOOLS.md'), body);
+}
+
+// ════════════════════════════════════════════════════════════════
+// ── OAUTH ROUTES ─────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+
+// ── STATUS ────────────────────────────────────────────────────
+app.get('/api/oauth/status', (req, res) => {
+    const pc = getPortalConfig();
+    res.json({
+        baseUrl:           pc.baseUrl || `http://localhost:${PORT}`,
+        github_configured: !!(pc.github?.clientId && pc.github?.clientSecret),
+        gmail_configured:  !!(pc.gmail?.clientId  && pc.gmail?.clientSecret),
+        // Return non-secret metadata for the UI (never expose secrets)
+        github_client_id:  pc.github?.clientId  || '',
+        gmail_client_id:   pc.gmail?.clientId   || '',
+    });
+});
+
+// ── SAVE PORTAL CONFIG (OAuth credentials) ────────────────────
+// Writes to portal-config.json ONLY — never touches openclaw.json
+app.put('/api/portal-config', (req, res) => {
+    try {
+        const { baseUrl, github_clientId, github_clientSecret, gmail_clientId, gmail_clientSecret } = req.body;
+        const existing = getPortalConfig();
+        const updated = {
+            ...existing,
+            baseUrl:  baseUrl  || existing.baseUrl  || `http://localhost:${PORT}`,
+            github: {
+                clientId:     github_clientId     || existing.github?.clientId     || '',
+                clientSecret: github_clientSecret || existing.github?.clientSecret || '',
+            },
+            gmail: {
+                clientId:     gmail_clientId     || existing.gmail?.clientId     || '',
+                clientSecret: gmail_clientSecret || existing.gmail?.clientSecret || '',
+            },
+        };
+        // Remove _readme key if present
+        delete updated._readme;
+        fs.writeFileSync(PORTAL_CONFIG_PATH, JSON.stringify(updated, null, 2), 'utf8');
+        broadcast({ type: 'portal_config_updated' });
+        res.json({
+            ok: true,
+            github_configured: !!(updated.github.clientId && updated.github.clientSecret),
+            gmail_configured:  !!(updated.gmail.clientId  && updated.gmail.clientSecret),
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ── GET PORTAL CONFIG (safe — no secrets exposed) ─────────────
+app.get('/api/portal-config', (req, res) => {
+    const pc = getPortalConfig();
+    res.json({
+        baseUrl:           pc.baseUrl || `http://localhost:${PORT}`,
+        github_clientId:   pc.github?.clientId   || '',
+        github_configured: !!(pc.github?.clientId && pc.github?.clientSecret),
+        gmail_clientId:    pc.gmail?.clientId    || '',
+        gmail_configured:  !!(pc.gmail?.clientId  && pc.gmail?.clientSecret),
+        config_path:       PORTAL_CONFIG_PATH,
+    });
+});
+
+// ── PER-AGENT CONNECTION STATUS ───────────────────────────────
+app.get('/api/agents/:id/connections', (req, res) => {
+    res.json(safeCredView(req.params.id));
+});
+
+// ── DISCONNECT ────────────────────────────────────────────────
+app.delete('/api/agents/:id/connections/:service', (req, res) => {
+    const { id, service } = req.params;
+    if (!['github', 'gmail'].includes(service))
+        return res.status(400).json({ error: 'Unknown service. Use github or gmail.' });
+    removeAgentService(id, service);
+    unpatchToolsMd(id, service);
+    broadcast({ type: 'connection_changed', agentId: id, service, connected: false });
+    res.json({ ok: true, message: `${service} disconnected from agent ${id}` });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GITHUB OAUTH
+// ════════════════════════════════════════════════════════════════
+app.get('/api/agents/:id/oauth/github/start', (req, res) => {
+    const pc = getPortalConfig();
+    if (!pc.github?.clientId)
+        return res.status(400).send(popupHtml('GitHub OAuth not configured. Create ~/.openclaw/portal-config.json — see startup log for instructions.'));
+    const state       = createState(req.params.id, 'github');
+    const redirectUri = `${baseUrl()}/api/oauth/github/callback`;
+    const url = new URL('https://github.com/login/oauth/authorize');
+    url.searchParams.set('client_id',    pc.github.clientId);
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('scope',        'repo user:email read:user read:org');
+    url.searchParams.set('state',        state);
+    res.redirect(url.toString());
+});
+
+app.get('/api/oauth/github/callback', async (req, res) => {
+    const { code, state, error } = req.query;
+    if (error) return res.send(popupHtml(`GitHub denied: ${error}`));
+    const entry = consumeState(state);
+    if (!entry) return res.send(popupHtml('Invalid or expired OAuth state. Please try again.'));
+
+    const pc          = getPortalConfig();
+    const redirectUri = `${baseUrl()}/api/oauth/github/callback`;
+
+    try {
+        // Exchange code for token
+        const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+            method:  'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                client_id:     pc.github.clientId,
+                client_secret: pc.github.clientSecret,
+                code,
+                redirect_uri:  redirectUri,
+            }),
+        });
+        const td = await tokenRes.json();
+        if (td.error) throw new Error(td.error_description || td.error);
+
+        // Fetch GitHub user
+        const ur  = await fetch('https://api.github.com/user', {
+            headers: { 'Authorization': `Bearer ${td.access_token}`, 'User-Agent': 'Nexus-AI-Portal/1.0' },
+        });
+        const user = await ur.json();
+        if (user.message) throw new Error(`GitHub API: ${user.message}`);
+
+        // Fetch primary email if not public
+        let email = user.email;
+        if (!email) {
+            const er = await fetch('https://api.github.com/user/emails', {
+                headers: { 'Authorization': `Bearer ${td.access_token}`, 'User-Agent': 'Nexus-AI-Portal/1.0' },
+            });
+            const emails = await er.json();
+            email = emails.find(e => e.primary)?.email || emails[0]?.email || '';
+        }
+
+        // Store encrypted
+        setAgentService(entry.agentId, 'github', {
+            access_token_enc: enc(td.access_token),
+            login:       user.login,
+            name:        user.name || user.login,
+            avatar_url:  user.avatar_url,
+            email,
+            scopes:      td.scope || 'repo,user:email',
+            connected_at: new Date().toISOString(),
+        });
+
+        // Patch TOOLS.md
+        patchToolsMd(entry.agentId, 'github', { login: user.login, name: user.name });
+
+        // Broadcast update
+        broadcast({
+            type: 'connection_changed',
+            agentId: entry.agentId,
+            service: 'github',
+            connected: true,
+            login: user.login,
+            avatar_url: user.avatar_url,
+        });
+
+        res.send(popupHtml(null, { service: 'github', agentId: entry.agentId, login: user.login, name: user.name, avatar_url: user.avatar_url }));
+    } catch (e) {
+        console.error('[OAuth/GitHub]', e.message);
+        res.send(popupHtml(`GitHub connection failed: ${e.message}`));
+    }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GMAIL / GOOGLE OAUTH
+// ════════════════════════════════════════════════════════════════
+app.get('/api/agents/:id/oauth/gmail/start', (req, res) => {
+    const pc = getPortalConfig();
+    if (!pc.gmail?.clientId)
+        return res.status(400).send(popupHtml('Gmail OAuth not configured. Create ~/.openclaw/portal-config.json — see startup log for instructions.'));
+    const state       = createState(req.params.id, 'gmail');
+    const redirectUri = `${baseUrl()}/api/oauth/google/callback`;
+    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    url.searchParams.set('client_id',     pc.gmail.clientId);
+    url.searchParams.set('redirect_uri',  redirectUri);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope',         [
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+    ].join(' '));
+    url.searchParams.set('access_type',   'offline');
+    url.searchParams.set('prompt',        'consent');
+    url.searchParams.set('state',         state);
+    res.redirect(url.toString());
+});
+
+app.get('/api/oauth/google/callback', async (req, res) => {
+    const { code, state, error } = req.query;
+    if (error) return res.send(popupHtml(`Google denied: ${error}`));
+    const entry = consumeState(state);
+    if (!entry) return res.send(popupHtml('Invalid or expired OAuth state. Please try again.'));
+
+    const pc          = getPortalConfig();
+    const redirectUri = `${baseUrl()}/api/oauth/google/callback`;
+
+    try {
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body:    new URLSearchParams({
+                code,
+                client_id:     pc.gmail.clientId,
+                client_secret: pc.gmail.clientSecret,
+                redirect_uri:  redirectUri,
+                grant_type:    'authorization_code',
+            }),
+        });
+        const td = await tokenRes.json();
+        if (td.error) throw new Error(td.error_description || td.error);
+
+        // Fetch Google user info
+        const ur   = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { 'Authorization': `Bearer ${td.access_token}` },
+        });
+        const user = await ur.json();
+        if (user.error) throw new Error(user.error.message || 'Failed to fetch user info');
+
+        setAgentService(entry.agentId, 'gmail', {
+            access_token_enc:  enc(td.access_token),
+            refresh_token_enc: td.refresh_token ? enc(td.refresh_token) : null,
+            expires_at:        Date.now() + (td.expires_in || 3600) * 1000,
+            email:        user.email,
+            name:         user.name,
+            picture:      user.picture,
+            connected_at: new Date().toISOString(),
+        });
+
+        patchToolsMd(entry.agentId, 'gmail', { email: user.email, name: user.name });
+
+        broadcast({
+            type: 'connection_changed',
+            agentId: entry.agentId,
+            service: 'gmail',
+            connected: true,
+            email: user.email,
+            picture: user.picture,
+        });
+
+        res.send(popupHtml(null, { service: 'gmail', agentId: entry.agentId, email: user.email, name: user.name, picture: user.picture }));
+    } catch (e) {
+        console.error('[OAuth/Google]', e.message);
+        res.send(popupHtml(`Gmail connection failed: ${e.message}`));
+    }
+});
+
+// ════════════════════════════════════════════════════════════════
+// PROXY ENDPOINTS  — forward API calls with agent's token
+// Agents can call e.g. GitHub API without tokens leaking to browser
+// ════════════════════════════════════════════════════════════════
+app.post('/api/agents/:id/proxy/github', async (req, res) => {
+    const { id }  = req.params;
+    const { endpoint, method = 'GET', body, headers = {} } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+    try {
+        const token  = getGitHubToken(id);
+        const apiRes = await fetch(`https://api.github.com${endpoint}`, {
+            method,
+            headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'Nexus-AI-Portal/1.0', 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', ...headers },
+            body:    body ? JSON.stringify(body) : undefined,
+        });
+        const data = await apiRes.json();
+        res.json({ ok: apiRes.ok, status: apiRes.status, data });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/agents/:id/proxy/gmail', async (req, res) => {
+    const { id }  = req.params;
+    const { endpoint, method = 'GET', body, headers = {} } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+    try {
+        const token  = await getGoogleToken(id);
+        const apiRes = await fetch(`https://gmail.googleapis.com${endpoint}`, {
+            method,
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...headers },
+            body:    body ? JSON.stringify(body) : undefined,
+        });
+        const data = await apiRes.json();
+        res.json({ ok: apiRes.ok, status: apiRes.status, data });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Quick test — verify a token actually works right now
+app.get('/api/agents/:id/connections/test/:service', async (req, res) => {
+    const { id, service } = req.params;
+    try {
+        if (service === 'github') {
+            const token = getGitHubToken(id);
+            const r     = await fetch('https://api.github.com/user', {
+                headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'Nexus-AI-Portal/1.0' },
+            });
+            const d = await r.json();
+            res.json({ ok: r.ok, login: d.login, name: d.name, rate_limit_remaining: r.headers.get('x-ratelimit-remaining') });
+        } else if (service === 'gmail') {
+            const token = await getGoogleToken(id);
+            const r     = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            const d = await r.json();
+            res.json({ ok: r.ok, email: d.emailAddress, messagesTotal: d.messagesTotal });
+        } else {
+            res.status(400).json({ error: 'Unknown service' });
+        }
+    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// ════════════════════════════════════════════════════════════════
+// DELEGATION DETECTION
+// ════════════════════════════════════════════════════════════════
+function detectDelegations(task, allAgents) {
+    const re  = /@([a-zA-Z][a-zA-Z0-9_-]*)/g;
+    const out = []; let m;
+    while ((m = re.exec(task)) !== null) {
+        const raw = m[1].toLowerCase();
+        const ag  = allAgents.find(a =>
+            a.id.toLowerCase() === raw ||
+            a.name.toLowerCase() === raw ||
+            a.name.toLowerCase().replace(/\s+/g, '') === raw
+        );
+        if (ag && !out.find(o => o.agent.id === ag.id))
+            out.push({ agent: ag, mention: m[0] });
+    }
+    return out;
+}
+
+// ════════════════════════════════════════════════════════════════
+// OPENCLAW WS CLIENT
+// ════════════════════════════════════════════════════════════════
 function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
     const token      = getGatewayToken();
     const sessionKey = `agent:${agentId}:main`;
     const reqId      = `portal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    let fullText     = '';
-    let finished     = false;
-    let connected    = false;
-    let msgSent      = false;
-    let gotChunk     = false;
-    let runId        = null;
+    let fullText = '', finished = false, connected = false, msgSent = false, gotChunk = false, runId = null;
 
-    if (!token) { onError('No gateway token found in openclaw.json'); return; }
+    if (!token) { onError('No gateway token found — check openclaw.json gateway.auth.token'); return; }
 
-    onLog(`[WS] Connecting → ${OC_WS_URL}`);
-    onLog(`[WS] Agent: ${agentId} | Session: ${sessionKey}`);
+    onLog(`[WS] → ${OC_WS_URL}  agent=${agentId}`);
 
     const ws = new WebSocket(OC_WS_URL, {
-        headers: { 'Origin': 'http://127.0.0.1:18789' },
+        headers: { Origin: 'http://127.0.0.1:18789' },
         handshakeTimeout: 10000,
     });
 
-    // ── finish helper ─────────────────────────────────────────────────────────
     const finish = (err) => {
-        if (finished) return;
-        finished = true;
-        clearTimeout(gTimeout);
-        clearInterval(heartbeatInterval);
+        if (finished) return; finished = true;
+        clearTimeout(gto); clearInterval(hbi);
         try { ws.terminate(); } catch {}
-
-        if (err) {
-            onLog(`[WS] ✗ Error: ${err}`);
-            onError(String(err));
-        } else {
-            onLog(`[WS] ✓ Done — ${fullText.length} chars`);
-            onDone(fullText);
-        }
+        if (err) { onLog(`[WS] ✗ ${err}`); onError(String(err)); }
+        else     { onLog(`[WS] ✓ done (${fullText.length} chars)`); onDone(fullText); }
     };
 
-    // 3-minute hard timeout — generous enough for slow local models
-    const gTimeout = setTimeout(() => {
-        if (gotChunk) {
-            // We got some text, treat as done rather than erroring
-            onLog('[WS] Timeout — but we have text, treating as complete');
-            finish(null);
-        } else {
-            finish('No response after 3 minutes. Check if your agent model is running.');
-        }
-    }, 180000);
+    const gto = setTimeout(() => gotChunk ? finish(null) : finish('No response after 3 min — is the agent model running?'), 180_000);
+    const hbi = setInterval(() => { if (!finished) onLog('[WS] … waiting for agent'); }, 15_000);
 
-    // Keep SSE connection alive with periodic keepalive log
-    const heartbeatInterval = setInterval(() => {
-        if (!finished) onLog('[WS] … waiting for agent response');
-    }, 15000);
+    ws.on('open', () => onLog('[WS] connected — awaiting challenge'));
 
-    // ── WebSocket events ──────────────────────────────────────────────────────
-    ws.on('open', () => {
-        onLog('[WS] Socket opened — awaiting challenge');
-    });
+    ws.on('message', raw => {
+        let f; try { f = JSON.parse(raw.toString()); } catch { return; }
+        const { type, event, id: fid, ok, payload, error } = f;
 
-    ws.on('message', (raw) => {
-        let frame;
-        try { frame = JSON.parse(raw.toString()); } catch {
-            onLog(`[WS] Bad JSON: ${raw.toString().slice(0, 60)}`);
-            return;
-        }
-
-        const { type, event, id: fid, ok, payload, error } = frame;
-
-        // ── 1. Challenge → Connect ────────────────────────────────────────────
         if (type === 'event' && event === 'connect.challenge') {
-            onLog('[WS] Got challenge → authenticating as openclaw-control-ui');
+            onLog('[WS] challenge → authenticating');
             ws.send(JSON.stringify({
-                type: 'req',
-                id: `${reqId}-c`,
-                method: 'connect',
+                type: 'req', id: `${reqId}-c`, method: 'connect',
                 params: {
-                    minProtocol: 3, maxProtocol: 3,
-                    role: 'operator',
-                    scopes: ['operator.read', 'operator.write'],
+                    minProtocol: 3, maxProtocol: 3, role: 'operator',
+                    scopes: ['operator.read','operator.write'],
                     caps: [], commands: [], permissions: {},
-                    auth: { token },
-                    locale: 'en-US',
-                    userAgent: 'openclaw-control-ui/2026.4.5',
-                    client: {
-                        id: 'openclaw-control-ui',
-                        version: '2026.4.5',
-                        platform: 'web',
-                        mode: 'webchat',
-                    },
+                    auth: { token }, locale: 'en-US',
+                    userAgent: 'openclaw-control-ui/2026.4',
+                    client: { id: 'openclaw-control-ui', version: '2026.4', platform: 'web', mode: 'webchat' },
                 },
-            }));
-            return;
+            })); return;
         }
 
-        // ── 2. Connect response ───────────────────────────────────────────────
         if (type === 'res' && fid === `${reqId}-c`) {
-            if (!ok) {
-                finish(`Auth failed: ${JSON.stringify(error || payload)}`);
-                return;
-            }
+            if (!ok) { finish(`Auth failed: ${JSON.stringify(error||payload)}`); return; }
             connected = true;
-            onLog(`[WS] ✓ Authenticated (protocol ${payload?.protocol})`);
-            onLog('[WS] Sending message to agent…');
+            onLog(`[WS] ✓ authenticated (proto=${payload?.protocol})`);
             ws.send(JSON.stringify({
-                type: 'req',
-                id: `${reqId}-m`,
-                method: 'chat.send',
-                params: {
-                    sessionKey,
-                    message,
-                    idempotencyKey: reqId,
-                },
-            }));
-            return;
+                type: 'req', id: `${reqId}-m`, method: 'chat.send',
+                params: { sessionKey, message, idempotencyKey: reqId },
+            })); return;
         }
 
-        // ── 3. Message accepted ───────────────────────────────────────────────
         if (type === 'res' && fid === `${reqId}-m`) {
-            if (!ok) {
-                finish(`Message rejected: ${JSON.stringify(error || payload)}`);
-                return;
-            }
-            msgSent = true;
-            runId = payload?.runId || payload?.id || null;
-            onLog(`[WS] ✓ Message accepted — runId: ${runId || 'N/A'}`);
-            onLog('[WS] Agent is thinking…');
-            return;
+            if (!ok) { finish(`Message rejected: ${JSON.stringify(error||payload)}`); return; }
+            msgSent = true; runId = payload?.runId || null;
+            onLog(`[WS] ✓ accepted — runId=${runId||'N/A'}`);
+            onLog('[WS] agent thinking…'); return;
         }
 
-        // ── 4. Agent streaming events ─────────────────────────────────────────
         if (type === 'event' && event === 'agent') {
-            const p = payload || {};
-            const stream = p.stream;
-            const data   = p.data;
-
-            onLog(`[WS] agent stream="${stream}" data=${JSON.stringify(data).slice(0, 60)}`);
-
-            // Text chunks — data.delta is incremental, data.text is cumulative
+            const { stream, data } = payload || {};
             if (stream === 'assistant' || stream === 'delta' || stream === 'text') {
-                // Always prefer delta (incremental), fall back to text only if no delta
                 let chunk = '';
-                if (typeof data === 'string') {
-                    chunk = data;
-                } else if (data?.delta !== undefined && data.delta !== null) {
-                    chunk = String(data.delta);
-                } else if (data?.content !== undefined) {
-                    chunk = String(data.content);
-                }
-                // Avoid duplicate: if delta not available, use text but only the new part
-                if (!chunk && data?.text) {
-                    const newPart = String(data.text).slice(fullText.length);
-                    if (newPart) chunk = newPart;
-                }
-                if (chunk) {
-                    fullText += chunk;
-                    gotChunk = true;
-                    onChunk(chunk);
-                }
+                if (typeof data === 'string') chunk = data;
+                else if (data?.delta != null)   chunk = String(data.delta);
+                else if (data?.content != null)  chunk = String(data.content);
+                if (!chunk && data?.text) { const np = String(data.text).slice(fullText.length); if (np) chunk = np; }
+                if (chunk) { fullText += chunk; gotChunk = true; onChunk(chunk); }
                 return;
             }
-
-            // Lifecycle events — end/done signals completion
             if (stream === 'lifecycle') {
-                const phase = data?.phase;
-                onLog(`[WS] lifecycle phase="${phase}"`);
-                if (phase === 'end' || phase === 'done' || phase === 'complete') {
-                    finish(null);
-                }
-                // 'start' means agent started — continue waiting
+                const ph = data?.phase;
+                onLog(`[WS] lifecycle phase=${ph}`);
+                if (ph === 'end' || ph === 'done' || ph === 'complete') finish(null);
                 return;
             }
-
-            // Explicit done/end streams
             if (stream === 'done' || stream === 'end' || stream === 'complete' || stream === 'finish') {
-                // Extract any final text if present
-                if (!gotChunk && data) {
-                    const t = typeof data === 'string' ? data : (data?.text || data?.content || '');
-                    if (t) { fullText = t; gotChunk = true; onChunk(t); }
-                }
-                finish(null);
-                return;
+                if (!gotChunk && data) { const t = typeof data==='string'?data:(data?.text||data?.content||''); if(t){fullText=t;gotChunk=true;onChunk(t);} }
+                finish(null); return;
             }
-
-            // Error stream
-            if (stream === 'error') {
-                const errMsg = typeof data === 'string' ? data : (data?.message || JSON.stringify(data));
-                finish(`Agent error: ${errMsg}`);
-                return;
-            }
-
-            // Skip non-content streams silently
-            // (start, tool, thinking, heartbeat, etc.)
+            if (stream === 'error') { finish(`Agent error: ${typeof data==='string'?data:(data?.message||JSON.stringify(data))}`); return; }
             return;
         }
 
-        // ── 5. Final res for agent run ────────────────────────────────────────
         if (type === 'res' && runId && payload?.runId === runId) {
-            onLog('[WS] Agent run final response received');
-            if (!gotChunk) {
-                const t = payload?.summary || payload?.text || payload?.content || payload?.message || '';
-                if (t) { fullText = t; gotChunk = true; onChunk(t); }
-            }
-            finish(null);
-            return;
+            if (!gotChunk) { const t=payload?.summary||payload?.text||payload?.content||''; if(t){fullText=t;gotChunk=true;onChunk(t);} }
+            finish(null); return;
         }
-
-        // ── 6. Chat history events — ignore content, just log ─────────────────
-        if (type === 'event' && (event === 'chat' || event === 'message')) {
-            // These carry full JSON history blobs — don't try to extract text
-            onLog(`[WS] chat history update (ignored)`);
-            return;
-        }
-
-        // ── 7. Other events — log but don't act ───────────────────────────────
-        if (type === 'event') {
-            onLog(`[WS] event: ${event}`);
-        }
+        if (type === 'event' && (event === 'chat' || event === 'message')) return;
     });
 
-    ws.on('error', (err) => {
-        onLog(`[WS] Socket error: ${err.message}`);
-        finish(`WebSocket error: ${err.message}`);
-    });
-
-    ws.on('close', (code, reason) => {
-        const r = reason?.toString?.() || '';
-        onLog(`[WS] Socket closed (code=${code}${r ? ' reason=' + r : ''})`);
+    ws.on('error', e  => finish(`WS error: ${e.message}`));
+    ws.on('close', code => {
         if (!finished) {
-            if (gotChunk) {
-                // We have text — treat close as done
-                onLog('[WS] Socket closed with data — treating as complete');
-                finish(null);
-            } else if (connected && msgSent) {
-                // Connected and sent but got nothing back
-                finish('Agent did not respond. The model may be offline or busy.');
-            } else {
-                finish(`Connection closed unexpectedly (code=${code})`);
-            }
+            if (gotChunk) { onLog('[WS] socket closed with data — done'); finish(null); }
+            else if (connected && msgSent) finish('Agent did not respond — model may be offline');
+            else finish(`Closed unexpectedly (code=${code})`);
         }
     });
 }
 
-// ─── TASK SSE ENDPOINT ────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// TASK ENDPOINT  — SSE streaming + delegation + token injection
+// ════════════════════════════════════════════════════════════════
 app.post('/api/task', async (req, res) => {
     const { agentId, task, fromAgent } = req.body;
     if (!agentId || !task) return res.status(400).json({ error: 'agentId + task required' });
 
     const cfg       = readConfig();
-    const allAgents = getAgentDirs().map(n => {
-        const e = cfg?.agents?.list?.find(a => a.id === n);
-        return { id: n, name: e?.name || n };
-    });
-    const delegations = detectDelegation(task, allAgents);
+    const allAgents = getAgentDirs().map(n => { const e=cfg?.agents?.list?.find(a=>a.id===n); return {id:n,name:e?.name||n}; });
+    const delegations = detectDelegations(task, allAgents);
+
+    // Build context-enriched message for this agent
+    const creds = getAgentCreds(agentId);
+    const ctxLines = [];
+    if (creds.github) ctxLines.push(`[GitHub: You are authenticated as @${creds.github.login}. Use this for all GitHub/code operations.]`);
+    if (creds.gmail)  ctxLines.push(`[Gmail: You are authenticated as ${creds.gmail.email}. Use this for all email operations.]`);
+    const enriched = ctxLines.length ? ctxLines.join('\n') + '\n\n' + task : task;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering if present
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    const sse = (o) => {
-        try {
-            if (!res.writableEnded) res.write(`data: ${JSON.stringify(o)}\n\n`);
-        } catch {}
-    };
-    const end = () => {
-        try {
-            if (!res.writableEnded) { res.write('data: [DONE]\n\n'); res.end(); }
-        } catch {}
-    };
+    const sse = o => { try { if (!res.writableEnded) res.write(`data: ${JSON.stringify(o)}\n\n`); } catch {} };
+    const end = () => { try { if (!res.writableEnded) { res.write('data: [DONE]\n\n'); res.end(); } } catch {} };
 
-    console.log(`\n${'─'.repeat(56)}`);
-    console.log(`[TASK] Agent: ${agentId}`);
-    console.log(`[TASK] Task:  ${task.substring(0, 80)}`);
-    if (delegations.length) console.log(`[TASK] Delegations: ${delegations.map(d => d.agent.name).join(', ')}`);
-    console.log(`${'─'.repeat(56)}`);
+    console.log(`\n${'─'.repeat(60)}\n[TASK] agent=${agentId}  delegations=${delegations.map(d=>d.agent.id).join(',')}\n[TASK] ${task.slice(0,100)}\n${'─'.repeat(60)}`);
 
-    if (delegations.length) {
-        sse({ type: 'delegation_detected', agents: delegations.map(d => ({ agentId: d.agent.id, agentName: d.agent.name, mention: d.mention })) });
-    }
+    if (delegations.length)
+        sse({ type: 'delegation_detected', agents: delegations.map(d=>({agentId:d.agent.id,agentName:d.agent.name,mention:d.mention})) });
 
-    // Run primary agent
-    sendToAgent(
-        agentId, task,
-        (msg) => { console.log(msg); sse({ log: msg }); },
-        (chunk) => sse({ chunk }),
-        async (fullText) => {
-            console.log(`[TASK] ✓ Primary done (${fullText.length} chars)`);
+    const agentName = allAgents.find(a=>a.id===agentId)?.name || agentId;
+
+    sendToAgent(agentId, enriched,
+        msg   => { console.log(msg); sse({ log: msg }); },
+        chunk => sse({ chunk }),
+        async fullText => {
             sse({ done: true, fullText });
+            saveTasks({ id:`${Date.now()}-${Math.random().toString(36).slice(2,5)}`, agentId, agentName, task, response:fullText, status:'done', fromAgent:fromAgent||null, delegatedTo:delegations.map(d=>d.agent.id), createdAt:new Date().toISOString() });
 
-            // Save to history
-            const agentName = allAgents.find(a => a.id === agentId)?.name || agentId;
-            saveTask({
-                id: `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-                agentId, agentName, task, response: fullText,
-                status: 'done', fromAgent: fromAgent || null,
-                delegatedTo: delegations.map(d => d.agent.id),
-                createdAt: new Date().toISOString(),
-            });
-
-            // Run delegations sequentially
             for (const { agent, mention } of delegations) {
-                console.log(`[DELEGATE] → ${agent.name}`);
-                sse({ type: 'delegation_start', agentId: agent.id, agentName: agent.name });
-                const subTask = `[Delegated from ${agentName}]\n\n${task.replace(mention, '').trim()}`;
-
-                await new Promise(resolve => {
-                    sendToAgent(
-                        agent.id, subTask,
-                        (msg) => { console.log(`  [${agent.id}] ${msg}`); sse({ log: `[${agent.name}] ${msg}` }); },
-                        (chunk) => sse({ delegationChunk: chunk, agentId: agent.id, agentName: agent.name }),
-                        (subText) => {
-                            console.log(`[DELEGATE] ✓ ${agent.name} done (${subText.length} chars)`);
-                            sse({ delegationDone: true, agentId: agent.id, agentName: agent.name, response: subText });
-                            saveTask({
-                                id: `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-                                agentId: agent.id, agentName: agent.name,
-                                task: subTask, response: subText, status: 'done',
-                                fromAgent: agentId, createdAt: new Date().toISOString(),
-                            });
-                            resolve();
-                        },
-                        (err) => {
-                            console.error(`[DELEGATE] ✗ ${agent.name}: ${err}`);
-                            sse({ delegationError: String(err), agentId: agent.id, agentName: agent.name });
-                            resolve();
-                        }
-                    );
-                });
+                sse({ type:'delegation_start', agentId:agent.id, agentName:agent.name });
+                const ac = getAgentCreds(agent.id);
+                let sub  = `[Delegated from: ${agentName}]\n\n${task.replace(mention,'').trim()}`;
+                if (ac.github) sub = `[GitHub: @${ac.github.login}]\n${sub}`;
+                if (ac.gmail)  sub = `[Gmail: ${ac.gmail.email}]\n${sub}`;
+                await new Promise(res => sendToAgent(agent.id, sub,
+                    m => sse({ log:`[${agent.name}] ${m}` }),
+                    c => sse({ delegationChunk:c, agentId:agent.id, agentName:agent.name }),
+                    t => {
+                        sse({ delegationDone:true, agentId:agent.id, agentName:agent.name, response:t });
+                        saveTasks({ id:`${Date.now()}-d`, agentId:agent.id, agentName:agent.name, task:sub, response:t, status:'done', fromAgent:agentId, createdAt:new Date().toISOString() });
+                        res();
+                    },
+                    e => { sse({ delegationError:String(e), agentId:agent.id, agentName:agent.name }); res(); }
+                ));
             }
-
             end();
         },
-        (err) => {
-            console.error(`[TASK] ✗ Error: ${err}`);
-            sse({ error: String(err) });
-            end();
-        }
+        err => { sse({ error: String(err) }); end(); }
     );
 
-    req.on('close', () => console.log('[TASK] Client disconnected'));
+    req.on('close', () => console.log('[TASK] client disconnected'));
 });
 
-// ─── WORKSPACE FILES API ──────────────────────────────────────────────────────
-app.get('/api/agents/:id/workspace', (req, res) => {
-    const { id } = req.params;
-    const ws = getAgentWorkspace(id);
-    const files = {};
-    for (const fname of WORKSPACE_FILES) {
-        const p = path.join(ws, fname);
-        files[fname] = { content: readF(p), exists: fs.existsSync(p), path: p };
-    }
-    const memDir = path.join(ws, 'memory');
-    const memFiles = [];
-    if (fs.existsSync(memDir)) {
-        fs.readdirSync(memDir).filter(f => f.endsWith('.md')).sort().reverse().slice(0, 10)
-            .forEach(f => memFiles.push({ name: f, content: readF(path.join(memDir, f)) }));
-    }
-    res.json({ agentId: id, workspacePath: ws, files, memoryFiles: memFiles });
-});
-
-app.put('/api/agents/:id/workspace/:file', (req, res) => {
-    const { id, file } = req.params;
-    const { content } = req.body;
-    if (!WORKSPACE_FILES.includes(file) && !file.match(/^\d{4}-\d{2}-\d{2}\.md$/))
-        return res.status(400).json({ error: 'Invalid file name' });
-    const ws = getAgentWorkspace(id);
-    const p = file.match(/^\d{4}-\d{2}-\d{2}\.md$/)
-        ? path.join(ws, 'memory', file)
-        : path.join(ws, file);
-    try { writeF(p, content || ''); res.json({ ok: true, path: p, size: (content || '').length }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/agents/:id/identity', async (req, res) => {
-    const { id } = req.params;
-    const { name, emoji, theme, model } = req.body;
-    let cfg = readConfig();
-    if (!cfg.agents?.list) return res.status(404).json({ error: 'No agents list' });
-    const idx = cfg.agents.list.findIndex(a => a.id === id);
-    if (idx < 0) return res.status(404).json({ error: `Agent ${id} not found` });
-    if (name) cfg.agents.list[idx].name = name;
-    if (emoji || theme) cfg.agents.list[idx].identity = { ...(cfg.agents.list[idx].identity || {}), ...(emoji ? { emoji } : {}), ...(theme ? { theme } : {}) };
-    if (model) cfg.agents.list[idx].model = { primary: model };
-    writeConfig(cfg);
-    await runCmd('openclaw gateway restart');
-    res.json({ ok: true, entry: cfg.agents.list[idx] });
-});
-
-// ─── AGENTS CRUD ──────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// AGENTS CRUD
+// ════════════════════════════════════════════════════════════════
 app.get('/api/agents', (req, res) => {
     const cfg    = readConfig();
-    const cfgMap = new Map((cfg?.agents?.list || []).map(a => [a.id, a]));
-    const agents = getAgentDirs().map(id => {
+    const cfgMap = new Map((cfg?.agents?.list||[]).map(a=>[a.id,a]));
+    const allCreds = readCreds();
+    const list = getAgentDirs().map(id => {
         const e  = cfgMap.get(id);
         const ws = getAgentWorkspace(id);
         const files = {};
-        for (const f of WORKSPACE_FILES) files[f] = fs.existsSync(path.join(ws, f));
+        for (const f of WS_FILES) files[f] = fs.existsSync(path.join(ws, f));
+        const c = allCreds[id] || {};
         return {
             id, name: e?.name || id,
-            inConfig: !!e, workspaceOk: !!(e?.workspace && e.workspace !== OC),
-            model: e?.model?.primary || e?.model || 'unknown',
-            identity: e?.identity || {},
-            workspace: ws, files,
+            inConfig:    !!e,
+            workspaceOk: !!(e?.workspace && e.workspace !== OC),
+            model:       e?.model?.primary || e?.model || 'unknown',
+            identity:    e?.identity || {},
+            workspace:   ws, files,
+            connections: {
+                github: c.github ? { connected:true, login:c.github.login, name:c.github.name, avatar_url:c.github.avatar_url } : null,
+                gmail:  c.gmail  ? { connected:true, email:c.gmail.email, name:c.gmail.name, picture:c.gmail.picture }         : null,
+            },
         };
     });
-    res.json(agents);
+    res.json(list);
 });
 
 app.post('/api/agents', async (req, res) => {
     const { name, soul, model, agentsmd, identitymd, usermd, toolsmd } = req.body;
-    if (!name || !soul || !model) return res.status(400).json({ error: 'name, soul, model required' });
-    const id      = name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-    const wsDir   = path.join(OC, `workspace-${id}`);
-    const aDir    = path.join(AGENTS_ROOT, id);
-    const aSubDir = path.join(aDir, 'agent');
-    [wsDir, aDir, aSubDir].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });
-    const filesToWrite = { 'SOUL.md': soul, 'AGENTS.md': agentsmd || '', 'IDENTITY.md': identitymd || '', 'USER.md': usermd || '', 'TOOLS.md': toolsmd || '' };
-    for (const [fname, content] of Object.entries(filesToWrite)) {
-        if (content) { writeF(path.join(aDir, fname), content); writeF(path.join(wsDir, fname), content); }
-    }
+    if (!name||!soul||!model) return res.status(400).json({ error:'name, soul, model required' });
+    const id    = name.trim().replace(/\s+/g,'-').replace(/[^a-zA-Z0-9_-]/g,'').toLowerCase();
+    const wsDir = path.join(OC, `workspace-${id}`);
+    const aDir  = path.join(AGENTS_ROOT, id);
+    [wsDir, aDir, path.join(aDir,'agent')].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d,{recursive:true}); });
+    const files = {'SOUL.md':soul,'AGENTS.md':agentsmd||'','IDENTITY.md':identitymd||'','USER.md':usermd||'','TOOLS.md':toolsmd||''};
+    for (const [fn,ct] of Object.entries(files)) if (ct) { writeF(path.join(aDir,fn),ct); writeF(path.join(wsDir,fn),ct); }
     const cli = await runCmd(`openclaw agents add ${id} --model ${model} --workspace "${wsDir}"`);
-    for (const [fname, content] of Object.entries(filesToWrite)) {
-        if (content) { writeF(path.join(aDir, fname), content); writeF(path.join(wsDir, fname), content); }
-    }
-    let cfg = readConfig();
-    if (!cfg.agents) cfg.agents = {};
-    if (!cfg.agents.list) cfg.agents.list = [];
-    const idx = cfg.agents.list.findIndex(a => a.id === id);
-    const entry = { id, name, workspace: wsDir, agentDir: path.join(aDir, 'agent'), model: { primary: model } };
-    if (idx >= 0) cfg.agents.list[idx] = entry; else cfg.agents.list.push(entry);
-    writeConfig(cfg);
-    await runCmd('openclaw gateway restart');
-    res.json({ ok: true, message: `Agent '${id}' created`, id, entry, cliResult: cli });
+    for (const [fn,ct] of Object.entries(files)) if (ct) { writeF(path.join(aDir,fn),ct); writeF(path.join(wsDir,fn),ct); }
+    let cfg = readConfig(); if (!cfg.agents) cfg.agents={}; if (!cfg.agents.list) cfg.agents.list=[];
+    const idx = cfg.agents.list.findIndex(a=>a.id===id);
+    const entry = {id, name, workspace:wsDir, agentDir:path.join(aDir,'agent'), model:{primary:model}};
+    if (idx>=0) cfg.agents.list[idx]=entry; else cfg.agents.list.push(entry);
+    writeConfig(cfg); await runCmd('openclaw gateway restart');
+    res.json({ ok:true, id, entry, cliResult:cli });
 });
 
 app.delete('/api/agents/:id', async (req, res) => {
     const { id } = req.params;
     let cfg = readConfig();
-    if (cfg.agents?.list) { cfg.agents.list = cfg.agents.list.filter(a => a.id !== id); writeConfig(cfg); }
+    if (cfg.agents?.list) { cfg.agents.list = cfg.agents.list.filter(a=>a.id!==id); writeConfig(cfg); }
     await runCmd('openclaw gateway restart');
-    res.json({ ok: true, message: `'${id}' removed from config` });
+    res.json({ ok:true });
+});
+
+app.get('/api/agents/:id/workspace', (req, res) => {
+    const { id } = req.params;
+    const ws = getAgentWorkspace(id);
+    const files = {};
+    for (const f of WS_FILES) { const p=path.join(ws,f); files[f]={content:readF(p),exists:fs.existsSync(p),path:p}; }
+    res.json({ agentId:id, workspacePath:ws, files });
+});
+
+app.put('/api/agents/:id/workspace/:file', (req, res) => {
+    const { id, file } = req.params;
+    const { content } = req.body;
+    if (!WS_FILES.includes(file) && !file.match(/^\d{4}-\d{2}-\d{2}\.md$/)) return res.status(400).json({ error:'Invalid file' });
+    const ws = getAgentWorkspace(id);
+    const p  = file.match(/^\d{4}-\d{2}-\d{2}\.md$/) ? path.join(ws,'memory',file) : path.join(ws,file);
+    try { writeF(p, content||''); res.json({ ok:true, size:(content||'').length }); } catch(e) { res.status(500).json({ error:e.message }); }
+});
+
+app.put('/api/agents/:id/identity', async (req, res) => {
+    const { id } = req.params;
+    const { name, emoji, theme, model } = req.body;
+    let cfg = readConfig(); if (!cfg.agents?.list) return res.status(404).json({ error:'No agents list' });
+    const idx = cfg.agents.list.findIndex(a=>a.id===id);
+    if (idx<0) return res.status(404).json({ error:`Agent ${id} not found` });
+    if (name)  cfg.agents.list[idx].name     = name;
+    if (emoji) cfg.agents.list[idx].identity = {...(cfg.agents.list[idx].identity||{}),emoji};
+    if (theme) cfg.agents.list[idx].identity = {...(cfg.agents.list[idx].identity||{}),theme};
+    if (model) cfg.agents.list[idx].model    = {primary:model};
+    writeConfig(cfg); await runCmd('openclaw gateway restart');
+    res.json({ ok:true, entry:cfg.agents.list[idx] });
 });
 
 app.post('/api/fix-all', async (req, res) => {
-    let cfg = readConfig();
-    if (!cfg.agents?.list) return res.json({ ok: false, error: 'No agents.list' });
+    let cfg = readConfig(); if (!cfg.agents?.list) return res.json({ok:false,error:'No agents.list'});
     const seen = new Set();
-    cfg.agents.list = cfg.agents.list.filter(a => { if (seen.has(a.id)) return false; seen.add(a.id); return true; }).map(a => {
-        const modelStr = typeof a.model === 'object' ? (a.model.primary || 'ollama/minimax-m2.5:cloud') : (a.model || 'ollama/minimax-m2.5:cloud');
-        let ws = a.workspace;
-        if (!ws || ws === OC) ws = path.join(OC, `workspace-${a.id}`);
-        if (!fs.existsSync(ws)) fs.mkdirSync(ws, { recursive: true });
-        const aDir = path.join(AGENTS_ROOT, a.id, 'agent');
-        if (!fs.existsSync(aDir)) fs.mkdirSync(aDir, { recursive: true });
-        const srcSoul = path.join(AGENTS_ROOT, a.id, 'SOUL.md');
-        const dstSoul = path.join(ws, 'SOUL.md');
-        if (fs.existsSync(srcSoul) && !fs.existsSync(dstSoul)) fs.copyFileSync(srcSoul, dstSoul);
-        return { id: a.id, name: a.name || a.id, workspace: ws, agentDir: aDir, model: { primary: modelStr }, ...(a.identity ? { identity: a.identity } : {}) };
-    });
-    writeConfig(cfg);
-    await runCmd('openclaw gateway restart');
-    await new Promise(r => setTimeout(r, 3000));
+    cfg.agents.list = cfg.agents.list
+        .filter(a=>{ if(seen.has(a.id))return false; seen.add(a.id); return true; })
+        .map(a=>{
+            const ms = typeof a.model==='object'?(a.model.primary||'ollama/minimax-m2.5:cloud'):(a.model||'ollama/minimax-m2.5:cloud');
+            let ws = a.workspace; if (!ws||ws===OC) ws=path.join(OC,`workspace-${a.id}`);
+            if (!fs.existsSync(ws)) fs.mkdirSync(ws,{recursive:true});
+            const ad = path.join(AGENTS_ROOT,a.id,'agent'); if (!fs.existsSync(ad)) fs.mkdirSync(ad,{recursive:true});
+            const ss=path.join(AGENTS_ROOT,a.id,'SOUL.md'),ds=path.join(ws,'SOUL.md');
+            if (fs.existsSync(ss)&&!fs.existsSync(ds)) fs.copyFileSync(ss,ds);
+            return {id:a.id,name:a.name||a.id,workspace:ws,agentDir:ad,model:{primary:ms},...(a.identity?{identity:a.identity}:{})};
+        });
+    writeConfig(cfg); await runCmd('openclaw gateway restart'); await new Promise(r=>setTimeout(r,3000));
     const cli = await runCmd('openclaw agents list 2>&1');
-    res.json({ ok: true, message: 'All agents fixed. Gateway restarted.', cli: cli.stdout });
+    res.json({ ok:true, message:'All agents fixed. Gateway restarted.', cli:cli.stdout });
 });
 
-// ─── TASK HISTORY ─────────────────────────────────────────────────────────────
-function readTasks() { try { return JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8')); } catch { return []; } }
-function saveTask(t) {
-    const tasks = readTasks(); tasks.unshift(t);
-    fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks.slice(0, 500), null, 2), 'utf8');
-    broadcast({ type: 'task_saved', task: t });
-}
-app.get('/api/tasks', (req, res) => res.json(readTasks()));
-app.delete('/api/tasks', (req, res) => { fs.writeFileSync(TASKS_FILE, '[]', 'utf8'); res.json({ ok: true }); });
-app.post('/api/tasks/save', (req, res) => {
-    const r = { id: Date.now().toString(), ...req.body, createdAt: new Date().toISOString() };
-    saveTask(r); res.json({ ok: true, record: r });
+// ════════════════════════════════════════════════════════════════
+// TASK HISTORY
+// ════════════════════════════════════════════════════════════════
+function readTasks()  { try { return JSON.parse(fs.readFileSync(TASKS_FILE,'utf8')); } catch { return []; } }
+function saveTasks(t) { const tasks=readTasks(); tasks.unshift(t); fs.writeFileSync(TASKS_FILE,JSON.stringify(tasks.slice(0,500),null,2),'utf8'); broadcast({type:'task_saved',task:t}); }
+app.get('/api/tasks',       (req,res)=>res.json(readTasks()));
+app.delete('/api/tasks',    (req,res)=>{fs.writeFileSync(TASKS_FILE,'[]','utf8');res.json({ok:true});});
+
+// ════════════════════════════════════════════════════════════════
+// NETWORK + DEBUG
+// ════════════════════════════════════════════════════════════════
+app.get('/api/network', (req,res)=>{
+    const ips=getLocalIPs();
+    res.json({port:PORT,ips,urls:ips.map(i=>`http://${i}:${PORT}`),hostname:os.hostname()});
 });
 
-// ─── NETWORK + DEBUG ──────────────────────────────────────────────────────────
-app.get('/api/network', (req, res) => {
-    const ips = getLocalIPs();
-    res.json({ port: PORT, ips, urls: ips.map(i => `http://${i.address}:${PORT}`), hostname: os.hostname() });
-});
-
-app.get('/api/debug', async (req, res) => {
-    const cfg = readConfig(); const cli = await runCmd('openclaw agents list 2>&1');
-    const token = getGatewayToken();
+app.get('/api/debug', async (req,res)=>{
+    const cfg=readConfig(), token=getGatewayToken(), pc=getPortalConfig();
+    const cli=await runCmd('openclaw agents list 2>&1');
     res.json({
-        CONFIG_PATH, token: token ? token.substring(0, 8) + '...' : 'NOT FOUND',
-        allowInsecureAuth: cfg?.gateway?.controlUi?.allowInsecureAuth,
-        configAgentsList: cfg?.agents?.list || [],
-        agentDirs: getAgentDirs(),
+        CONFIG_PATH,
+        token:   token?token.slice(0,8)+'...':'NOT FOUND',
+        gateway: cfg?.gateway?.controlUi?.allowInsecureAuth,
+        agents:  cfg?.agents?.list||[],
+        dirs:    getAgentDirs(),
         cliOutput: cli.stdout,
-        networkUrls: getLocalIPs().map(i => `http://${i.address}:${PORT}`),
+        oauth: {
+            github: pc.github?.clientId?'✓ configured':'✗ not configured',
+            gmail:  pc.gmail?.clientId ?'✓ configured':'✗ not configured',
+            baseUrl: pc.baseUrl||`http://localhost:${PORT}`,
+        },
     });
 });
 
-// ─── STARTUP ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// AUTO-CREATE portal-config.json template if missing
+// ════════════════════════════════════════════════════════════════
+function ensurePortalConfigTemplate() {
+    if (fs.existsSync(PORTAL_CONFIG_PATH)) return;
+    const template = {
+        _readme: [
+            "Nexus.AI Portal OAuth configuration.",
+            "DO NOT add this content to openclaw.json — OpenClaw rejects unknown keys.",
+            "Fill in your GitHub and Gmail OAuth app credentials below.",
+            "GitHub callback: http://localhost:3000/api/oauth/github/callback",
+            "Google callback: http://localhost:3000/api/oauth/google/callback",
+        ],
+        baseUrl: `http://localhost:${PORT}`,
+        github: { clientId: "Ov23liiHYKDMP6Y3tkAJ", clientSecret: "d79f0b0967fa3af1d5f7463078f0040c9147f540" },
+        gmail:  { clientId: "", clientSecret: "" },
+    };
+    fs.writeFileSync(PORTAL_CONFIG_PATH, JSON.stringify(template, null, 2), 'utf8');
+    console.log(`[BOOT] Created template: ${PORTAL_CONFIG_PATH}`);
+    console.log('[BOOT] → Edit it with your GitHub + Gmail OAuth credentials.');
+}
+
+// ════════════════════════════════════════════════════════════════
+// STARTUP
+// ════════════════════════════════════════════════════════════════
 server.listen(PORT, BIND, () => {
+    ensurePortalConfigTemplate();
     const token = getGatewayToken();
     const ips   = getLocalIPs();
-    console.log(`\n🦀  Nexus.AI Portal`);
+    const pc    = getPortalConfig();
+    const ghOk  = !!(pc.github?.clientId && pc.github?.clientSecret);
+    const gmOk  = !!(pc.gmail?.clientId  && pc.gmail?.clientSecret);
+
+    console.log('\n🦀  Nexus.AI Portal');
     console.log(`    Local    → http://localhost:${PORT}`);
-    ips.forEach(i => console.log(`    Network  → http://${i.address}:${PORT}`));
+    ips.forEach(ip => console.log(`    Network  → http://${ip}:${PORT}`));
     console.log(`    Gateway  → ${OC_WS_URL}`);
-    console.log(`    Token    → ${token ? '✓ ' + token.substring(0, 8) + '...' : '✗ NOT FOUND'}\n`);
+    console.log(`    Token    → ${token?'✓ '+token.slice(0,8)+'...':'✗ NOT FOUND'}`);
+    console.log(`    Config   → ${PORTAL_CONFIG_PATH}`);
+    console.log(`    GitHub   → ${ghOk?'✓ configured':'✗ clientId/clientSecret empty'}`);
+    console.log(`    Gmail    → ${gmOk?'✓ configured':'✗ clientId/clientSecret empty'}`);
+
+    if (!ghOk || !gmOk) {
+        console.log('');
+        console.log('  ┌─ OAUTH SETUP ──────────────────────────────────────────────────');
+        console.log(`  │  Edit: ${PORTAL_CONFIG_PATH}`);
+        console.log('  │');
+        if (!ghOk) {
+            console.log('  │  GitHub OAuth App → https://github.com/settings/developers');
+            console.log(`  │    Callback URL: http://localhost:${PORT}/api/oauth/github/callback`);
+        }
+        if (!gmOk) {
+            console.log('  │  Google OAuth → https://console.cloud.google.com/apis/credentials');
+            console.log(`  │    Callback URL: http://localhost:${PORT}/api/oauth/google/callback`);
+            console.log('  │    Enable: Gmail API in API Library');
+        }
+        console.log('  │');
+        console.log('  │  ⚠  Do NOT put OAuth config in openclaw.json');
+        console.log('  │     OpenClaw rejects unknown keys and will abort the gateway.');
+        console.log('  └───────────────────────────────────────────────────────────────');
+        console.log('');
+        console.log('Happy Birthday Bro!')
+    }
+
     const ws = new WebSocket(OC_WS_URL);
     ws.on('open',  () => { console.log('[BOOT] ✓ OpenClaw gateway reachable\n'); ws.close(); });
     ws.on('error', e  => console.log(`[BOOT] ✗ Gateway: ${e.message}\n`));
 });
+
+
+
+
