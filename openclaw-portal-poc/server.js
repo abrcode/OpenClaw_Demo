@@ -536,7 +536,8 @@ app.get('/api/agents/:id/oauth/gmail/start', (req, res) => {
     if (!pc.gmail?.clientId)
         return res.status(400).send(popupHtml('Gmail OAuth not configured. Create ~/.openclaw/portal-config.json — see startup log for instructions.'));
     const state       = createState(req.params.id, 'gmail');
-    const redirectUri = `${baseUrl()}/api/oauth/google/callback`;
+    // const redirectUri = `${baseUrl()}/api/oauth/google/callback`;
+    const redirectUri = `${baseUrl()}/api/email/oauth/callback`;
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id',     pc.gmail.clientId);
     url.searchParams.set('redirect_uri',  redirectUri);
@@ -553,14 +554,14 @@ app.get('/api/agents/:id/oauth/gmail/start', (req, res) => {
     res.redirect(url.toString());
 });
 
-app.get('/api/oauth/google/callback', async (req, res) => {
+app.get('/api/email/oauth/callback', async (req, res) => {
     const { code, state, error } = req.query;
     if (error) return res.send(popupHtml(`Google denied: ${error}`));
     const entry = consumeState(state);
     if (!entry) return res.send(popupHtml('Invalid or expired OAuth state. Please try again.'));
 
     const pc          = getPortalConfig();
-    const redirectUri = `${baseUrl()}/api/oauth/google/callback`;
+    const redirectUri = `${baseUrl()}/api/email/oauth/callback`;
 
     try {
         const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -1017,7 +1018,7 @@ function ensurePortalConfigTemplate() {
             "DO NOT add this content to openclaw.json — OpenClaw rejects unknown keys.",
             "Fill in your GitHub and Gmail OAuth app credentials below.",
             "GitHub callback: http://localhost:3000/api/oauth/github/callback",
-            "Google callback: http://localhost:3000/api/oauth/google/callback",
+            "Google callback: http://localhost:3000/api/email/oauth/callback",
         ],
         baseUrl: `http://localhost:${PORT}`,
         github: { clientId: "Ov23liiHYKDMP6Y3tkAJ", clientSecret: "d79f0b0967fa3af1d5f7463078f0040c9147f540" },
