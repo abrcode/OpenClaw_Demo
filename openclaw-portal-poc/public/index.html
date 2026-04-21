@@ -220,6 +220,30 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .btn-send{background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:.36rem .9rem;font-size:.73rem;font-weight:600;font-family:var(--sans);cursor:pointer;transition:all .15s;box-shadow:0 2px 8px rgba(99,102,241,.28)}
 .btn-send:hover{background:var(--accent-d)}
 .btn-send:disabled{background:var(--surface3);color:var(--text3);cursor:not-allowed;box-shadow:none}
+
+/* ── ATTACHMENT UI ── */
+.att-bar{display:flex;align-items:center;gap:.38rem;padding:.28rem .62rem .1rem;flex-wrap:wrap;min-height:0}
+.att-bar:empty{display:none}
+.att-chip{display:inline-flex;align-items:center;gap:.32rem;background:var(--surface3);border:1px solid var(--border2);border-radius:20px;padding:.2rem .52rem .2rem .38rem;font-size:.63rem;font-weight:500;color:var(--text2);max-width:160px;white-space:nowrap;overflow:hidden}
+.att-chip.text{border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.07)}
+.att-chip.code{border-color:rgba(14,165,233,.3);background:rgba(14,165,233,.07)}
+.att-chip.image{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.07)}
+.att-chip.video{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.07)}
+.att-chip.audio{border-color:rgba(236,72,153,.3);background:rgba(236,72,153,.07)}
+.att-chip.pdf{border-color:rgba(244,63,94,.3);background:rgba(244,63,94,.07)}
+.att-chip-name{overflow:hidden;text-overflow:ellipsis;flex:1}
+.att-chip-rm{background:transparent;border:none;cursor:pointer;color:var(--text3);font-size:.7rem;line-height:1;padding:0 1px;flex-shrink:0;border-radius:50%;transition:color .15s}
+.att-chip-rm:hover{color:var(--rose)}
+.btn-attach{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:.82rem;padding:.22rem .38rem;border-radius:6px;transition:all .15s;display:flex;align-items:center;gap:.22rem;font-family:var(--sans);font-size:.67rem;font-weight:500}
+.btn-attach:hover{background:var(--surface3);color:var(--accent-d)}
+.btn-attach.has-files{color:var(--accent-d);background:var(--accent-l)}
+.att-caps{font-size:.6rem;color:var(--text3);padding:.12rem .62rem .32rem;line-height:1.5;display:none}
+.att-caps.show{display:block}
+.att-caps-chip{display:inline-flex;align-items:center;gap:.2rem;background:var(--surface3);border:1px solid var(--border);border-radius:20px;padding:1px 7px;margin:1px 2px;font-size:.59rem}
+.att-caps-chip.on{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.3);color:#065f46}
+.att-caps-chip.off{background:rgba(244,63,94,.04);border-color:rgba(244,63,94,.15);color:#991b1b;opacity:.7}
+.att-unsupported{font-size:.63rem;color:var(--rose);padding:.18rem .62rem;display:none}
+.att-unsupported.show{display:block}
 .tr-sec{padding:.72rem .88rem;border-bottom:1px solid var(--border);flex-shrink:0}
 .tr-ttl{font-size:.63rem;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.45rem}
 .tr-row{display:flex;justify-content:space-between;align-items:center;padding:.2rem 0;font-size:.7rem}
@@ -503,7 +527,16 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
             <div class="inp-lbl">Task for <span id="inpAgentName" style="font-weight:600;color:var(--accent-d)">—</span><span class="inp-badge">@mention to delegate</span></div>
             <div class="inp-wrap">
               <textarea class="task-inp" id="taskInp" placeholder="Describe the task… use @AgentName to delegate automatically" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-              <div class="inp-tb"><span class="inp-hint"><kbd>⌘↵</kbd> send · <code>@AgentName</code> delegate</span><button class="btn-clr" onclick="document.getElementById('taskInp').value='';autoResize(document.getElementById('taskInp'))">Clear</button><button class="btn-send" id="sendBtn" onclick="sendTask()">Send task</button></div>
+              <div class="att-bar" id="attBar"></div>
+              <div class="inp-tb">
+                <button class="btn-attach" id="attBtn" onclick="triggerAttach()" title="Attach files">📎 Attach</button>
+                <input type="file" id="attInput" multiple style="display:none" onchange="handleAttachFiles(event)">
+                <span class="inp-hint"><kbd>⌘↵</kbd> send · <code>@AgentName</code> delegate</span>
+                <button class="btn-clr" onclick="document.getElementById('taskInp').value='';autoResize(document.getElementById('taskInp'))">Clear</button>
+                <button class="btn-send" id="sendBtn" onclick="sendTask()">Send task</button>
+              </div>
+              <div class="att-caps" id="attCaps"></div>
+              <div class="att-unsupported" id="attUnsupported"></div>
             </div>
           </div>
         </div>
@@ -759,6 +792,12 @@ let allTasks=[], histFilter='all', histQ='';
 let selEmoji='🤖';
 let oauthStatus={github_configured:false,gmail_configured:false};
 
+// ── Attachment state ──────────────────────────────────────────
+let pendingAttachments = []; // [{id, originalname, category, size, mimetype}]
+let agentAttachCaps = null;  // loaded when agent is selected
+
+const CAT_ICONS = { text:'📄', code:'💻', image:'🖼️', video:'🎬', audio:'🎵', pdf:'📕' };
+
 const PALETTES=[
   {bg:'#f3f0ff',text:'#5b21b6'},{bg:'#eef2ff',text:'#4338ca'},
   {bg:'#e0f2fe',text:'#0369a1'},{bg:'#ecfdf5',text:'#065f46'},
@@ -883,6 +922,11 @@ function selectAgent(id){
   ].filter(Boolean).join('');
   document.getElementById('noAgentView').style.display='none';
   document.getElementById('taskLayout').style.display='grid';
+  // Reset attachments and load model capabilities
+  clearAttachments();
+  agentAttachCaps=null;
+  document.getElementById('attCaps').classList.remove('show');
+  loadAgentAttachCaps(curAgent.id);
   showPanel('task');
 }
 
@@ -1161,18 +1205,149 @@ function updDC(id,status,text){
   if(r&&text)r.textContent=text.slice(0,120)+(text.length>120?'…':'');
 }
 
+// ════════════════════════════════════════════════════════════════
+// ATTACHMENTS
+// ════════════════════════════════════════════════════════════════
+async function loadAgentAttachCaps(agentId){
+  try{
+    const d=await fetch(`/api/agents/${agentId}/attachment-caps`).then(r=>r.json());
+    agentAttachCaps=d.caps||{text:true,code:true,image:false,video:false,audio:false,pdf:false};
+    renderAttachCaps();
+  }catch{agentAttachCaps={text:true,code:true,image:false,video:false,audio:false,pdf:false};}
+}
+
+function renderAttachCaps(){
+  const el=document.getElementById('attCaps');if(!el||!agentAttachCaps)return;
+  const all=[['text','Text/CSV/JSON'],['code','Code files'],['image','Images'],['video','Video'],['audio','Audio'],['pdf','PDF']];
+  el.innerHTML='Supported attachments: '+all.map(([k,lbl])=>{
+    const on=agentAttachCaps[k];
+    return `<span class="att-caps-chip ${on?'on':'off'}">${on?'✓':'✗'} ${lbl}</span>`;
+  }).join('');
+  el.classList.add('show');
+  // Update file input accept attribute
+  buildAcceptAttr();
+}
+
+function buildAcceptAttr(){
+  if(!agentAttachCaps)return;
+  const parts=[];
+  if(agentAttachCaps.text||agentAttachCaps.code) parts.push('.txt,.md,.csv,.json,.xml,.yaml,.yml,.log,.js,.ts,.jsx,.tsx,.py,.java,.c,.cpp,.cs,.go,.rs,.php,.rb,.swift,.kt,.html,.css,.sh,.sql,.env,.toml');
+  if(agentAttachCaps.image) parts.push('image/*');
+  if(agentAttachCaps.video) parts.push('video/*');
+  if(agentAttachCaps.audio) parts.push('audio/*');
+  if(agentAttachCaps.pdf)   parts.push('.pdf');
+  const inp=document.getElementById('attInput');
+  if(inp) inp.accept=parts.join(',')||'*';
+}
+
+function triggerAttach(){
+  document.getElementById('attInput').click();
+}
+
+async function handleAttachFiles(e){
+  const files=[...e.target.files];if(!files.length)return;
+  // Validate against caps
+  const unsupported=[];
+  for(const f of files){
+    const cat=guessCategory(f.name,f.type);
+    if(agentAttachCaps&&!agentAttachCaps[cat]){
+      unsupported.push(`${f.name} (${cat})`);
+    }
+  }
+  const warnEl=document.getElementById('attUnsupported');
+  if(unsupported.length){
+    warnEl.textContent=`⚠ Not supported by this model: ${unsupported.join(', ')}`;
+    warnEl.classList.add('show');
+    // Still allow text/code files through, block others
+  } else {
+    warnEl.classList.remove('show');
+  }
+  // Upload supported files
+  const formData=new FormData();
+  let uploadCount=0;
+  for(const f of files){
+    const cat=guessCategory(f.name,f.type);
+    if(!agentAttachCaps||agentAttachCaps[cat]){formData.append('files',f);uploadCount++;}
+  }
+  if(!uploadCount){e.target.value='';return;}
+  try{
+    const res=await fetch('/api/attachments/upload',{method:'POST',body:formData});
+    const d=await res.json();
+    if(d.ok){
+      pendingAttachments.push(...d.files);
+      renderAttachBar();
+    }else{showToast('Upload failed: '+(d.error||'unknown'),'err');}
+  }catch(ex){showToast('Upload error: '+ex.message,'err');}
+  e.target.value='';
+}
+
+function guessCategory(filename,mimetype){
+  const extMap={txt:'text',md:'text',csv:'text',json:'text',xml:'text',yaml:'text',yml:'text',log:'text',env:'text',toml:'text',js:'code',ts:'code',jsx:'code',tsx:'code',py:'code',java:'code',c:'code',cpp:'code',cs:'code',go:'code',rs:'code',php:'code',rb:'code',swift:'code',kt:'code',html:'code',css:'code',sh:'code',sql:'code',png:'image',jpg:'image',jpeg:'image',gif:'image',webp:'image',svg:'image',mp4:'video',webm:'video',mov:'video',avi:'video',mkv:'video',mp3:'audio',wav:'audio',ogg:'audio',m4a:'audio',pdf:'pdf'};
+  const mimeMap={'text/plain':'text','text/csv':'text','application/json':'text','text/html':'code','text/javascript':'code','text/css':'code','image/jpeg':'image','image/png':'image','image/gif':'image','image/webp':'image','video/mp4':'video','video/webm':'video','audio/mpeg':'audio','audio/wav':'audio','application/pdf':'pdf'};
+  if(mimeMap[mimetype])return mimeMap[mimetype];
+  const ext=(filename||'').split('.').pop()?.toLowerCase();
+  return extMap[ext]||'text';
+}
+
+function renderAttachBar(){
+  const bar=document.getElementById('attBar');if(!bar)return;
+  const btn=document.getElementById('attBtn');
+  if(!pendingAttachments.length){bar.innerHTML='';if(btn)btn.classList.remove('has-files');return;}
+  if(btn)btn.classList.add('has-files');
+  bar.innerHTML=pendingAttachments.map((a,i)=>{
+    const ico=CAT_ICONS[a.category]||'📎';
+    const sz=(a.size/1024)<1?`${a.size}B`:(a.size/1024)<1024?`${(a.size/1024).toFixed(1)}KB`:`${(a.size/1048576).toFixed(1)}MB`;
+    return `<span class="att-chip ${esc(a.category)}" title="${esc(a.originalname)} (${sz})">
+      <span>${ico}</span><span class="att-chip-name">${esc(a.originalname)}</span>
+      <button class="att-chip-rm" onclick="removeAttachment(${i})" title="Remove">×</button>
+    </span>`;
+  }).join('');
+}
+
+function removeAttachment(idx){
+  pendingAttachments.splice(idx,1);
+  renderAttachBar();
+  if(!pendingAttachments.length)document.getElementById('attUnsupported').classList.remove('show');
+}
+
+function clearAttachments(){
+  pendingAttachments=[];
+  renderAttachBar();
+  document.getElementById('attUnsupported').classList.remove('show');
+}
+
+// Render attachment previews in chat message
+function renderAttachPreview(attachments){
+  if(!attachments||!attachments.length)return '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:.28rem;margin-top:.4rem">${attachments.map(a=>{
+    const ico=CAT_ICONS[a.category]||'📎';
+    const sz=(a.size/1024)<1?`${a.size}B`:(a.size/1024)<1024?`${(a.size/1024).toFixed(1)}KB`:`${(a.size/1048576).toFixed(1)}MB`;
+    return `<span class="att-chip ${esc(a.category)}" style="max-width:140px">${ico} ${esc(a.originalname)} <span style="opacity:.6">${sz}</span></span>`;
+  }).join('')}</div>`;
+}
+
 async function sendTask(){
   if(!curAgent||streaming)return;
   const task=document.getElementById('taskInp').value.trim();if(!task)return;
   streaming=true;clearDbg();
   document.getElementById('sendBtn').disabled=true;document.getElementById('sendBtn').textContent='Sending...';
   document.getElementById('taskInp').value='';autoResize(document.getElementById('taskInp'));
-  setSt('work','Connecting to agent...');appendMsg('user',task);appendMsg('agent','',curAgent.name);
+  // Capture and clear attachments
+  const taskAttachments=[...pendingAttachments];
+  clearAttachments();
+  setSt('work','Connecting to agent...');
+  // Build user message display (with attachment chips)
+  const chatArea=document.getElementById('chatArea');
+  document.getElementById('chatEmpty').style.display='none';
+  const userWrap=document.createElement('div');userWrap.className='msg-wrap';
+  userWrap.innerHTML=`<div class="msg-meta"><span class="msg-meta-nm" style="color:var(--accent-d)">You</span><span>${ts()}</span></div><div class="msg-user">${esc(task)}${renderAttachPreview(taskAttachments)}</div>`;
+  chatArea.appendChild(userWrap);chatArea.scrollTop=99999;
+  appendMsg('agent','',curAgent.name);
   ss.msgs++;document.getElementById('ss-msgs').textContent=ss.msgs;
-  addDbg(`→ ${curAgent.id} | ${task.slice(0,40)}…`,'info');
+  addDbg(`→ ${curAgent.id} | ${task.slice(0,40)}… | attachments=${taskAttachments.length}`,'info');
   let full='',totalC=0;
   try{
-    const res=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:curAgent.id,task})});
+    const res=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:curAgent.id,task,attachments:taskAttachments})});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const rdr=res.body.getReader(),dec=new TextDecoder();let buf='';
     while(true){
@@ -1201,6 +1376,7 @@ function clearConv(){
   document.getElementById('chatArea').innerHTML='<div class="chat-empty" id="chatEmpty"><div class="ce-ill">&#x1F4AC;</div><div class="ce-ttl">Ready for your task</div><div class="ce-sub">Type a task below. Use <strong>@AgentName</strong> to automatically delegate.</div></div>';
   setSt('idle','Idle');document.getElementById('stbChars').textContent='';
   ss={msgs:0,chars:0,dels:0};['ss-msgs','ss-chars','ss-del'].forEach(id=>{document.getElementById(id).textContent='0';});clearDbg();
+  clearAttachments();
 }
 
 // ════════════════════════════════════════════════════════════════
