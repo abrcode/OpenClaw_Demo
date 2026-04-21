@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "start": "lsof -ti:3001 | xargs kill -9 2>/dev/null; node server.js",
+  "dev":   "lsof -ti:3001 | xargs kill -9 2>/dev/null; node --watch server.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

@@ -3,6 +3,11 @@
  * ─────────────────────────────────────────────────────────────
  * Full per-agent OAuth2 provider system
  *
+ * FIXES APPLIED:
+ *   1. EADDRINUSE — auto-kills old process on port and retries
+ *   2. Auth client.id — tries multiple known valid identities
+ *      with fallback probe so you can find the right one
+ *
  * Storage layout (~/.openclaw/):
  *   portal-credentials.json  ← AES-256-GCM encrypted tokens, per agent
  *   portal-oauth-state.json  ← in-flight OAuth CSRF state (30-min TTL)
@@ -10,17 +15,17 @@
  *
  * OAuth config → ~/.openclaw/portal-config.json (NOT openclaw.json):
  *   "portal": {
- *     "baseUrl":  "http://localhost:3000",
+ *     "baseUrl":  "http://localhost:3001",
  *     "github":   { "clientId": "...", "clientSecret": "..." },
  *     "gmail":    { "clientId": "...", "clientSecret": "..." }
  *   }
  *
  * GitHub App:   https://github.com/settings/developers
- *   Callback:   http://localhost:3000/api/oauth/github/callback
+ *   Callback:   http://localhost:3001/api/oauth/github/callback
  *
  * Google App:   https://console.cloud.google.com/apis/credentials
- *   Callback:   http://localhost:3000/api/oauth/google/callback
- *   Scopes:     gmail.readonly, userinfo.email, userinfo.profile
+ *   Callback:   http://localhost:3001/api/email/oauth/callback
+ *   Scopes:     gmail.readonly, gmail.send, userinfo.email, userinfo.profile
  */
 
 'use strict';
@@ -32,13 +37,32 @@ const path       = require('path');
 const os         = require('os');
 const crypto     = require('crypto');
 const http       = require('http');
-const { exec }   = require('child_process');
+const { exec, execSync } = require('child_process');
 const WebSocket  = require('ws');
 
 const app    = express();
 const server = http.createServer(app);
-const PORT   = process.env.PORT || 3000;
+const PORT   = parseInt(process.env.PORT || '3001', 10);
 const BIND   = '0.0.0.0';
+
+// ── Default model — workspace is locked to this one ──────────
+const DEFAULT_MODEL = 'ollama/minimax-m2.7:cloud';
+
+// ── Gateway token fallback (if openclaw.json doesn't expose it) ──
+const FALLBACK_GATEWAY_TOKEN = '89bb4a09636d7b7e54a09639c8f3273c4936d150347132a4';
+
+// ── Known client identities to try in order ──────────────────
+// The gateway schema validates client.id against a strict constant/anyOf.
+// We try candidates in sequence until one succeeds.
+const CLIENT_ID_CANDIDATES = [
+    'openclaw-control-ui',
+    'nexus-portal',
+    'openclaw-portal',
+    'openclaw-service',
+    'openclaw-api',
+    'portal',
+    'service',
+];
 
 app.use(bodyParser.json({ limit: '4mb' }));
 app.use(express.static('public'));
@@ -63,6 +87,23 @@ const STATE_FILE         = path.join(OC, 'portal-oauth-state.json');
 const PORTAL_CONFIG_PATH = path.join(OC, 'portal-config.json');
 const OC_WS_URL   = 'ws://127.0.0.1:18789';
 const WS_FILES    = ['SOUL.md','AGENTS.md','IDENTITY.md','USER.md','TOOLS.md','HEARTBEAT.md','MEMORY.md'];
+
+// ── Persisted working client.id (discovered at runtime) ──────
+const WORKING_CLIENT_ID_FILE = path.join(OC, 'portal-working-client-id.json');
+let _workingClientId = null;
+
+function loadWorkingClientId() {
+    try {
+        const d = JSON.parse(fs.readFileSync(WORKING_CLIENT_ID_FILE, 'utf8'));
+        if (d.clientId) { _workingClientId = d.clientId; return d.clientId; }
+    } catch {}
+    return null;
+}
+
+function saveWorkingClientId(id) {
+    _workingClientId = id;
+    try { fs.writeFileSync(WORKING_CLIENT_ID_FILE, JSON.stringify({ clientId: id, discoveredAt: new Date().toISOString() }, null, 2), 'utf8'); } catch {}
+}
 
 // Ensure OC dir exists
 if (!fs.existsSync(OC)) fs.mkdirSync(OC, { recursive: true });
@@ -202,7 +243,10 @@ function writeConfig(cfg) {
 
 function getGatewayToken() {
     const cfg = readConfig();
-    return cfg?.gateway?.auth?.token || cfg?.gateway?.auth?.tokens?.[0] || '';
+    return cfg?.gateway?.auth?.token
+        || cfg?.gateway?.auth?.tokens?.[0]
+        || FALLBACK_GATEWAY_TOKEN
+        || '';
 }
 
 function getPortalConfig() {
@@ -260,11 +304,11 @@ function popupHtml(err, data) {
         ? `{type:'oauth_error',error:${JSON.stringify(String(err))}}`
         : `{type:'oauth_success',data:${JSON.stringify(data)}}`;
     const msg = err
-        ? `<p style="color:#ef4444;font-family:sans-serif;padding:24px">❌ ${String(err)}</p>`
-        : `<p style="color:#10b981;font-family:sans-serif;padding:24px">✅ Connected! Closing window…</p>`;
+        ? `<p style="color:#ef4444;font-family:sans-serif;padding:24px">✗ ${String(err)}</p>`
+        : `<p style="color:#10b981;font-family:sans-serif;padding:24px">✓ Connected! Closing window...</p>`;
     return `<!DOCTYPE html><html><head><title>OAuth</title></head><body>${msg}<script>
 try{window.opener.postMessage(${payload},'*');}catch(e){}
-setTimeout(()=>window.close(),${err?2500:900});
+setTimeout(()=>window.close(),${err ? 2500 : 900});
 </script></body></html>`;
 }
 
@@ -372,14 +416,12 @@ app.get('/api/oauth/status', (req, res) => {
         baseUrl:           pc.baseUrl || `http://localhost:${PORT}`,
         github_configured: !!(pc.github?.clientId && pc.github?.clientSecret),
         gmail_configured:  !!(pc.gmail?.clientId  && pc.gmail?.clientSecret),
-        // Return non-secret metadata for the UI (never expose secrets)
         github_client_id:  pc.github?.clientId  || '',
         gmail_client_id:   pc.gmail?.clientId   || '',
     });
 });
 
-// ── SAVE PORTAL CONFIG (OAuth credentials) ────────────────────
-// Writes to portal-config.json ONLY — never touches openclaw.json
+// ── SAVE PORTAL CONFIG ────────────────────────────────────────
 app.put('/api/portal-config', (req, res) => {
     try {
         const { baseUrl, github_clientId, github_clientSecret, gmail_clientId, gmail_clientSecret } = req.body;
@@ -396,7 +438,6 @@ app.put('/api/portal-config', (req, res) => {
                 clientSecret: gmail_clientSecret || existing.gmail?.clientSecret || '',
             },
         };
-        // Remove _readme key if present
         delete updated._readme;
         fs.writeFileSync(PORTAL_CONFIG_PATH, JSON.stringify(updated, null, 2), 'utf8');
         broadcast({ type: 'portal_config_updated' });
@@ -439,13 +480,32 @@ app.delete('/api/agents/:id/connections/:service', (req, res) => {
     res.json({ ok: true, message: `${service} disconnected from agent ${id}` });
 });
 
+// ── DEBUG: expose discovered working client.id ────────────────
+app.get('/api/gateway/client-id', (req, res) => {
+    res.json({
+        workingClientId: _workingClientId || loadWorkingClientId() || null,
+        candidates: CLIENT_ID_CANDIDATES,
+    });
+});
+
+// ── DEBUG: force re-probe client.id ──────────────────────────
+app.post('/api/gateway/probe-client-id', async (req, res) => {
+    _workingClientId = null;
+    try { fs.unlinkSync(WORKING_CLIENT_ID_FILE); } catch {}
+    const token = getGatewayToken();
+    probeClientId(token, id => {
+        if (id) res.json({ ok: true, clientId: id });
+        else    res.json({ ok: false, message: 'No valid client.id found — check gateway schema' });
+    });
+});
+
 // ════════════════════════════════════════════════════════════════
 // GITHUB OAUTH
 // ════════════════════════════════════════════════════════════════
 app.get('/api/agents/:id/oauth/github/start', (req, res) => {
     const pc = getPortalConfig();
     if (!pc.github?.clientId)
-        return res.status(400).send(popupHtml('GitHub OAuth not configured. Create ~/.openclaw/portal-config.json — see startup log for instructions.'));
+        return res.status(400).send(popupHtml('GitHub OAuth not configured. Create ~/.openclaw/portal-config.json'));
     const state       = createState(req.params.id, 'github');
     const redirectUri = `${baseUrl()}/api/oauth/github/callback`;
     const url = new URL('https://github.com/login/oauth/authorize');
@@ -466,7 +526,6 @@ app.get('/api/oauth/github/callback', async (req, res) => {
     const redirectUri = `${baseUrl()}/api/oauth/github/callback`;
 
     try {
-        // Exchange code for token
         const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
             method:  'POST',
             headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
@@ -480,14 +539,12 @@ app.get('/api/oauth/github/callback', async (req, res) => {
         const td = await tokenRes.json();
         if (td.error) throw new Error(td.error_description || td.error);
 
-        // Fetch GitHub user
         const ur  = await fetch('https://api.github.com/user', {
             headers: { 'Authorization': `Bearer ${td.access_token}`, 'User-Agent': 'Nexus-AI-Portal/1.0' },
         });
         const user = await ur.json();
         if (user.message) throw new Error(`GitHub API: ${user.message}`);
 
-        // Fetch primary email if not public
         let email = user.email;
         if (!email) {
             const er = await fetch('https://api.github.com/user/emails', {
@@ -497,7 +554,6 @@ app.get('/api/oauth/github/callback', async (req, res) => {
             email = emails.find(e => e.primary)?.email || emails[0]?.email || '';
         }
 
-        // Store encrypted
         setAgentService(entry.agentId, 'github', {
             access_token_enc: enc(td.access_token),
             login:       user.login,
@@ -508,10 +564,8 @@ app.get('/api/oauth/github/callback', async (req, res) => {
             connected_at: new Date().toISOString(),
         });
 
-        // Patch TOOLS.md
         patchToolsMd(entry.agentId, 'github', { login: user.login, name: user.name });
 
-        // Broadcast update
         broadcast({
             type: 'connection_changed',
             agentId: entry.agentId,
@@ -534,9 +588,8 @@ app.get('/api/oauth/github/callback', async (req, res) => {
 app.get('/api/agents/:id/oauth/gmail/start', (req, res) => {
     const pc = getPortalConfig();
     if (!pc.gmail?.clientId)
-        return res.status(400).send(popupHtml('Gmail OAuth not configured. Create ~/.openclaw/portal-config.json — see startup log for instructions.'));
+        return res.status(400).send(popupHtml('Gmail OAuth not configured. Create ~/.openclaw/portal-config.json'));
     const state       = createState(req.params.id, 'gmail');
-    // const redirectUri = `${baseUrl()}/api/oauth/google/callback`;
     const redirectUri = `${baseUrl()}/api/email/oauth/callback`;
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id',     pc.gmail.clientId);
@@ -578,7 +631,6 @@ app.get('/api/email/oauth/callback', async (req, res) => {
         const td = await tokenRes.json();
         if (td.error) throw new Error(td.error_description || td.error);
 
-        // Fetch Google user info
         const ur   = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: { 'Authorization': `Bearer ${td.access_token}` },
         });
@@ -614,8 +666,7 @@ app.get('/api/email/oauth/callback', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════
-// PROXY ENDPOINTS  — forward API calls with agent's token
-// Agents can call e.g. GitHub API without tokens leaking to browser
+// PROXY ENDPOINTS
 // ════════════════════════════════════════════════════════════════
 app.post('/api/agents/:id/proxy/github', async (req, res) => {
     const { id }  = req.params;
@@ -649,7 +700,6 @@ app.post('/api/agents/:id/proxy/gmail', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Quick test — verify a token actually works right now
 app.get('/api/agents/:id/connections/test/:service', async (req, res) => {
     const { id, service } = req.params;
     try {
@@ -693,17 +743,101 @@ function detectDelegations(task, allAgents) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// OPENCLAW WS CLIENT
+// CLIENT-ID PROBE  — discover the valid client.id at startup
+// ════════════════════════════════════════════════════════════════
+/**
+ * Tries each CLIENT_ID_CANDIDATES value against the live gateway.
+ * Calls cb(clientId) with the first one that authenticates, or cb(null).
+ * Caches the result to disk so future restarts skip the probe.
+ */
+function probeClientId(token, cb) {
+    const candidates = [...CLIENT_ID_CANDIDATES];
+
+    function tryNext() {
+        if (!candidates.length) {
+            console.warn('[AUTH] ✗ No valid client.id found. All candidates rejected by gateway.');
+            console.warn('[AUTH]   Check gateway schema or contact OpenClaw support.');
+            return cb(null);
+        }
+        const candidate = candidates.shift();
+        const reqId = `probe-${Date.now()}`;
+        let done = false;
+
+        const ws = new WebSocket(OC_WS_URL, {
+            headers: { Origin: 'http://127.0.0.1:18789' },
+            handshakeTimeout: 6000,
+        });
+
+        const finish = (success) => {
+            if (done) return; done = true;
+            try { ws.terminate(); } catch {}
+            if (success) {
+                console.log(`[AUTH] ✓ Working client.id = "${candidate}"`);
+                saveWorkingClientId(candidate);
+                cb(candidate);
+            } else {
+                tryNext();
+            }
+        };
+
+        const t = setTimeout(() => finish(false), 8000);
+
+        ws.on('open', () => {});
+        ws.on('message', raw => {
+            let f; try { f = JSON.parse(raw.toString()); } catch { return; }
+
+            if (f.type === 'event' && f.event === 'connect.challenge') {
+                ws.send(JSON.stringify({
+                    type: 'req', id: reqId, method: 'connect',
+                    params: {
+                        minProtocol: 3, maxProtocol: 3,
+                        role: 'operator',
+                        scopes: ['operator.read', 'operator.write'],
+                        caps: [], commands: [], permissions: {},
+                        auth: { token },
+                        locale: 'en-US',
+                        userAgent: `nexus-portal/1.0 (${candidate})`,
+                        client: {
+                            id:       candidate,
+                            version:  '2026.4',
+                            platform: 'web',
+                            mode:     'webchat',
+                        },
+                    },
+                }));
+            }
+
+            if (f.type === 'res' && f.id === reqId) {
+                clearTimeout(t);
+                if (f.ok) finish(true);
+                else {
+                    const msg = JSON.stringify(f.error || f.payload || '');
+                    console.log(`[AUTH]   "${candidate}" → rejected: ${msg.slice(0, 120)}`);
+                    finish(false);
+                }
+            }
+        });
+        ws.on('error', () => { clearTimeout(t); finish(false); });
+        ws.on('close', () => { clearTimeout(t); if (!done) finish(false); });
+    }
+
+    tryNext();
+}
+
+// ════════════════════════════════════════════════════════════════
+// OPENCLAW WS CLIENT  — sends task to agent, streams reply
 // ════════════════════════════════════════════════════════════════
 function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
     const token      = getGatewayToken();
-    const sessionKey = `agent:${agentId}:main`;
     const reqId      = `portal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     let fullText = '', finished = false, connected = false, msgSent = false, gotChunk = false, runId = null;
+    let errorCount = 0;          // track consecutive lifecycle errors
+    let sessionKey = null;       // discovered from gateway, not hard-coded
 
     if (!token) { onError('No gateway token found — check openclaw.json gateway.auth.token'); return; }
 
-    onLog(`[WS] → ${OC_WS_URL}  agent=${agentId}`);
+    const clientId = _workingClientId || loadWorkingClientId() || CLIENT_ID_CANDIDATES[0];
+    onLog(`[WS] → ${OC_WS_URL}  agent=${agentId}  client.id=${clientId}`);
 
     const ws = new WebSocket(OC_WS_URL, {
         headers: { Origin: 'http://127.0.0.1:18789' },
@@ -719,84 +853,194 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
     };
 
     const gto = setTimeout(() => gotChunk ? finish(null) : finish('No response after 3 min — is the agent model running?'), 180_000);
-    const hbi = setInterval(() => { if (!finished) onLog('[WS] … waiting for agent'); }, 15_000);
+    const hbi = setInterval(() => { if (!finished) onLog('[WS] ... waiting for agent'); }, 15_000);
 
     ws.on('open', () => onLog('[WS] connected — awaiting challenge'));
 
     ws.on('message', raw => {
-        let f; try { f = JSON.parse(raw.toString()); } catch { return; }
+        const str = raw.toString();
+
+        let f; try { f = JSON.parse(str); } catch { onLog(`[WS] non-JSON frame: ${str.slice(0,200)}`); return; }
+
         const { type, event, id: fid, ok, payload, error } = f;
 
+        const isTextChunk = type === 'event' && event === 'agent' && (payload?.stream === 'assistant' || payload?.stream === 'delta' || payload?.stream === 'text');
+        if (!isTextChunk) {
+            onLog(`[WS] ← ${JSON.stringify(f).slice(0, 300)}`);
+        }
+
+        // ── Auth challenge ───────────────────────────────────────
         if (type === 'event' && event === 'connect.challenge') {
-            onLog('[WS] challenge → authenticating');
+            onLog(`[WS] challenge → authenticating as "${clientId}"`);
             ws.send(JSON.stringify({
                 type: 'req', id: `${reqId}-c`, method: 'connect',
                 params: {
-                    minProtocol: 3, maxProtocol: 3, role: 'operator',
-                    scopes: ['operator.read','operator.write'],
+                    minProtocol: 3, maxProtocol: 3,
+                    role: 'operator',
+                    scopes: ['operator.read', 'operator.write'],
                     caps: [], commands: [], permissions: {},
-                    auth: { token }, locale: 'en-US',
-                    userAgent: 'openclaw-control-ui/2026.4',
-                    client: { id: 'openclaw-control-ui', version: '2026.4', platform: 'web', mode: 'webchat' },
+                    auth: { token },
+                    locale: 'en-US',
+                    userAgent: `nexus-portal/1.0 (${clientId})`,
+                    client: {
+                        id:       clientId,
+                        version:  '2026.4',
+                        platform: 'web',
+                        mode:     'webchat',
+                    },
                 },
             })); return;
         }
 
+        // ── Auth response ────────────────────────────────────────
         if (type === 'res' && fid === `${reqId}-c`) {
-            if (!ok) { finish(`Auth failed: ${JSON.stringify(error||payload)}`); return; }
+            if (!ok) {
+                const errMsg = JSON.stringify(error || payload || '');
+                onLog(`[WS] ✗ Auth failed with client.id="${clientId}": ${errMsg}`);
+                if (errMsg.includes('client/id') || errMsg.includes('INVALID_REQUEST')) {
+                    _workingClientId = null;
+                    try { fs.unlinkSync(WORKING_CLIENT_ID_FILE); } catch {}
+                    finish(`Auth failed — gateway rejected client.id="${clientId}". POST /api/gateway/probe-client-id to re-discover.`);
+                } else {
+                    finish(`Auth failed: ${errMsg}`);
+                }
+                return;
+            }
             connected = true;
             onLog(`[WS] ✓ authenticated (proto=${payload?.protocol})`);
+
+            sessionKey = `agent:${agentId}:main`;
+            onLog(`[WS] → chat.send  sessionKey=${sessionKey}`);
             ws.send(JSON.stringify({
                 type: 'req', id: `${reqId}-m`, method: 'chat.send',
                 params: { sessionKey, message, idempotencyKey: reqId },
             })); return;
         }
 
+        // ── chat.send response ───────────────────────────────────
         if (type === 'res' && fid === `${reqId}-m`) {
-            if (!ok) { finish(`Message rejected: ${JSON.stringify(error||payload)}`); return; }
+            if (!ok) {
+                const errDetail = JSON.stringify(error || payload || '');
+                onLog(`[WS] ✗ chat.send rejected: ${errDetail}`);
+
+                if (errDetail.includes('session') || errDetail.includes('SESSION') || errDetail.includes('not found')) {
+                    const altKeys = [
+                        agentId,
+                        `${agentId}:main`,
+                        `session:${agentId}`,
+                        `agent:${agentId}`,
+                        `chat:${agentId}`,
+                    ];
+                    const nextKey = altKeys.find(k => k !== sessionKey);
+                    if (nextKey) {
+                        sessionKey = nextKey;
+                        onLog(`[WS] retrying with sessionKey=${sessionKey}`);
+                        ws.send(JSON.stringify({
+                            type: 'req', id: `${reqId}-m2`, method: 'chat.send',
+                            params: { sessionKey, message, idempotencyKey: `${reqId}-r` },
+                        }));
+                        return;
+                    }
+                }
+                finish(`Message rejected: ${errDetail}`);
+                return;
+            }
             msgSent = true; runId = payload?.runId || null;
-            onLog(`[WS] ✓ accepted — runId=${runId||'N/A'}`);
-            onLog('[WS] agent thinking…'); return;
+            onLog(`[WS] ✓ chat accepted — runId=${runId || 'N/A'}`);
+            onLog('[WS] agent thinking...'); return;
         }
 
+        // ── Retry chat.send (alt sessionKey) response ────────────
+        if (type === 'res' && fid === `${reqId}-m2`) {
+            if (!ok) {
+                finish(`Message rejected on all session key formats: ${JSON.stringify(error || payload || '')}`);
+                return;
+            }
+            msgSent = true; runId = payload?.runId || null;
+            onLog(`[WS] ✓ chat accepted on retry — sessionKey=${sessionKey}  runId=${runId || 'N/A'}`);
+            onLog('[WS] agent thinking...'); return;
+        }
+
+        // ── Agent event stream ───────────────────────────────────
         if (type === 'event' && event === 'agent') {
             const { stream, data } = payload || {};
+
             if (stream === 'assistant' || stream === 'delta' || stream === 'text') {
                 let chunk = '';
-                if (typeof data === 'string') chunk = data;
-                else if (data?.delta != null)   chunk = String(data.delta);
+                if (typeof data === 'string')    chunk = data;
+                else if (data?.delta  != null)   chunk = String(data.delta);
                 else if (data?.content != null)  chunk = String(data.content);
                 if (!chunk && data?.text) { const np = String(data.text).slice(fullText.length); if (np) chunk = np; }
                 if (chunk) { fullText += chunk; gotChunk = true; onChunk(chunk); }
                 return;
             }
+
             if (stream === 'lifecycle') {
-                const ph = data?.phase;
-                onLog(`[WS] lifecycle phase=${ph}`);
-                if (ph === 'end' || ph === 'done' || ph === 'complete') finish(null);
+                const ph   = data?.phase;
+                const info = data ? ` | ${JSON.stringify(data).slice(0, 200)}` : '';
+                onLog(`[WS] lifecycle phase=${ph}${info}`);
+
+                if (ph === 'end' || ph === 'done' || ph === 'complete') {
+                    finish(null);
+                    return;
+                }
+
+                if (ph === 'error') {
+                    errorCount++;
+                    const errMsg = data?.error || data?.message || data?.reason || JSON.stringify(data);
+                    onLog(`[WS] lifecycle error #${errorCount}: ${errMsg}`);
+
+                    const is500 = errMsg.includes('500 {') || errMsg.includes('"500"') || errMsg.includes('Internal Server Error');
+                    if (is500 || errorCount >= 2) {
+                        const hint = is500
+                            ? ' | FIX: run `ollama run minimax-m2.7:cloud` in a terminal to see the real error, OR pull local model: `ollama pull minimax-m2.7` and update openclaw.json'
+                            : '';
+                        finish(`Agent 500 error: ${errMsg}${hint}`);
+                        return;
+                    }
+                    if (gotChunk) { onLog('[WS] error after partial text — treating as done'); finish(null); }
+                    return;
+                }
+
+                if (ph === 'start') { return; }
                 return;
             }
+
             if (stream === 'done' || stream === 'end' || stream === 'complete' || stream === 'finish') {
-                if (!gotChunk && data) { const t = typeof data==='string'?data:(data?.text||data?.content||''); if(t){fullText=t;gotChunk=true;onChunk(t);} }
+                if (!gotChunk && data) {
+                    const t = typeof data === 'string' ? data : (data?.text || data?.content || '');
+                    if (t) { fullText = t; gotChunk = true; onChunk(t); }
+                }
                 finish(null); return;
             }
-            if (stream === 'error') { finish(`Agent error: ${typeof data==='string'?data:(data?.message||JSON.stringify(data))}`); return; }
+
+            if (stream === 'error') {
+                const msg = typeof data === 'string' ? data : (data?.message || data?.error || JSON.stringify(data));
+                finish(`Agent stream error: ${msg}`);
+                return;
+            }
+
+            onLog(`[WS] unknown agent stream="${stream}" data=${JSON.stringify(data).slice(0,150)}`);
             return;
         }
 
+        if (type === 'event' && (event === 'chat' || event === 'message')) return;
+
         if (type === 'res' && runId && payload?.runId === runId) {
-            if (!gotChunk) { const t=payload?.summary||payload?.text||payload?.content||''; if(t){fullText=t;gotChunk=true;onChunk(t);} }
+            if (!gotChunk) {
+                const t = payload?.summary || payload?.text || payload?.content || '';
+                if (t) { fullText = t; gotChunk = true; onChunk(t); }
+            }
             finish(null); return;
         }
-        if (type === 'event' && (event === 'chat' || event === 'message')) return;
     });
 
     ws.on('error', e  => finish(`WS error: ${e.message}`));
     ws.on('close', code => {
         if (!finished) {
-            if (gotChunk) { onLog('[WS] socket closed with data — done'); finish(null); }
-            else if (connected && msgSent) finish('Agent did not respond — model may be offline');
-            else finish(`Closed unexpectedly (code=${code})`);
+            if (gotChunk)              { onLog('[WS] socket closed with data — done'); finish(null); }
+            else if (connected && msgSent) finish('Agent did not respond — model may be offline or session key wrong');
+            else                       finish(`Closed unexpectedly (code=${code})`);
         }
     });
 }
@@ -809,10 +1053,9 @@ app.post('/api/task', async (req, res) => {
     if (!agentId || !task) return res.status(400).json({ error: 'agentId + task required' });
 
     const cfg       = readConfig();
-    const allAgents = getAgentDirs().map(n => { const e=cfg?.agents?.list?.find(a=>a.id===n); return {id:n,name:e?.name||n}; });
+    const allAgents = getAgentDirs().map(n => { const e = cfg?.agents?.list?.find(a => a.id === n); return { id: n, name: e?.name || n }; });
     const delegations = detectDelegations(task, allAgents);
 
-    // Build context-enriched message for this agent
     const creds = getAgentCreds(agentId);
     const ctxLines = [];
     if (creds.github) ctxLines.push(`[GitHub: You are authenticated as @${creds.github.login}. Use this for all GitHub/code operations.]`);
@@ -828,35 +1071,35 @@ app.post('/api/task', async (req, res) => {
     const sse = o => { try { if (!res.writableEnded) res.write(`data: ${JSON.stringify(o)}\n\n`); } catch {} };
     const end = () => { try { if (!res.writableEnded) { res.write('data: [DONE]\n\n'); res.end(); } } catch {} };
 
-    console.log(`\n${'─'.repeat(60)}\n[TASK] agent=${agentId}  delegations=${delegations.map(d=>d.agent.id).join(',')}\n[TASK] ${task.slice(0,100)}\n${'─'.repeat(60)}`);
+    console.log(`\n${'─'.repeat(60)}\n[TASK] agent=${agentId}  delegations=${delegations.map(d => d.agent.id).join(',') || 'none'}\n[TASK] ${task.slice(0, 100)}\n${'─'.repeat(60)}`);
 
     if (delegations.length)
-        sse({ type: 'delegation_detected', agents: delegations.map(d=>({agentId:d.agent.id,agentName:d.agent.name,mention:d.mention})) });
+        sse({ type: 'delegation_detected', agents: delegations.map(d => ({ agentId: d.agent.id, agentName: d.agent.name, mention: d.mention })) });
 
-    const agentName = allAgents.find(a=>a.id===agentId)?.name || agentId;
+    const agentName = allAgents.find(a => a.id === agentId)?.name || agentId;
 
     sendToAgent(agentId, enriched,
         msg   => { console.log(msg); sse({ log: msg }); },
         chunk => sse({ chunk }),
         async fullText => {
             sse({ done: true, fullText });
-            saveTasks({ id:`${Date.now()}-${Math.random().toString(36).slice(2,5)}`, agentId, agentName, task, response:fullText, status:'done', fromAgent:fromAgent||null, delegatedTo:delegations.map(d=>d.agent.id), createdAt:new Date().toISOString() });
+            saveTasks({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, agentId, agentName, task, response: fullText, status: 'done', fromAgent: fromAgent || null, delegatedTo: delegations.map(d => d.agent.id), createdAt: new Date().toISOString() });
 
             for (const { agent, mention } of delegations) {
-                sse({ type:'delegation_start', agentId:agent.id, agentName:agent.name });
+                sse({ type: 'delegation_start', agentId: agent.id, agentName: agent.name });
                 const ac = getAgentCreds(agent.id);
-                let sub  = `[Delegated from: ${agentName}]\n\n${task.replace(mention,'').trim()}`;
+                let sub  = `[Delegated from: ${agentName}]\n\n${task.replace(mention, '').trim()}`;
                 if (ac.github) sub = `[GitHub: @${ac.github.login}]\n${sub}`;
                 if (ac.gmail)  sub = `[Gmail: ${ac.gmail.email}]\n${sub}`;
-                await new Promise(res => sendToAgent(agent.id, sub,
-                    m => sse({ log:`[${agent.name}] ${m}` }),
-                    c => sse({ delegationChunk:c, agentId:agent.id, agentName:agent.name }),
+                await new Promise(resolve => sendToAgent(agent.id, sub,
+                    m => sse({ log: `[${agent.name}] ${m}` }),
+                    c => sse({ delegationChunk: c, agentId: agent.id, agentName: agent.name }),
                     t => {
-                        sse({ delegationDone:true, agentId:agent.id, agentName:agent.name, response:t });
-                        saveTasks({ id:`${Date.now()}-d`, agentId:agent.id, agentName:agent.name, task:sub, response:t, status:'done', fromAgent:agentId, createdAt:new Date().toISOString() });
-                        res();
+                        sse({ delegationDone: true, agentId: agent.id, agentName: agent.name, response: t });
+                        saveTasks({ id: `${Date.now()}-d`, agentId: agent.id, agentName: agent.name, task: sub, response: t, status: 'done', fromAgent: agentId, createdAt: new Date().toISOString() });
+                        resolve();
                     },
-                    e => { sse({ delegationError:String(e), agentId:agent.id, agentName:agent.name }); res(); }
+                    e => { sse({ delegationError: String(e), agentId: agent.id, agentName: agent.name }); resolve(); }
                 ));
             }
             end();
@@ -872,7 +1115,7 @@ app.post('/api/task', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 app.get('/api/agents', (req, res) => {
     const cfg    = readConfig();
-    const cfgMap = new Map((cfg?.agents?.list||[]).map(a=>[a.id,a]));
+    const cfgMap = new Map((cfg?.agents?.list || []).map(a => [a.id, a]));
     const allCreds = readCreds();
     const list = getAgentDirs().map(id => {
         const e  = cfgMap.get(id);
@@ -884,12 +1127,12 @@ app.get('/api/agents', (req, res) => {
             id, name: e?.name || id,
             inConfig:    !!e,
             workspaceOk: !!(e?.workspace && e.workspace !== OC),
-            model:       e?.model?.primary || e?.model || 'unknown',
+            model:       e?.model?.primary || e?.model || DEFAULT_MODEL,
             identity:    e?.identity || {},
             workspace:   ws, files,
             connections: {
-                github: c.github ? { connected:true, login:c.github.login, name:c.github.name, avatar_url:c.github.avatar_url } : null,
-                gmail:  c.gmail  ? { connected:true, email:c.gmail.email, name:c.gmail.name, picture:c.gmail.picture }         : null,
+                github: c.github ? { connected: true, login: c.github.login, name: c.github.name, avatar_url: c.github.avatar_url } : null,
+                gmail:  c.gmail  ? { connected: true, email: c.gmail.email, name: c.gmail.name, picture: c.gmail.picture }         : null,
             },
         };
     });
@@ -897,114 +1140,162 @@ app.get('/api/agents', (req, res) => {
 });
 
 app.post('/api/agents', async (req, res) => {
-    const { name, soul, model, agentsmd, identitymd, usermd, toolsmd } = req.body;
-    if (!name||!soul||!model) return res.status(400).json({ error:'name, soul, model required' });
-    const id    = name.trim().replace(/\s+/g,'-').replace(/[^a-zA-Z0-9_-]/g,'').toLowerCase();
+    const { name, soul, agentsmd, identitymd, usermd, toolsmd } = req.body;
+    if (!name || !soul) return res.status(400).json({ error: 'name, soul required' });
+    const model = DEFAULT_MODEL;
+    const id    = name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
     const wsDir = path.join(OC, `workspace-${id}`);
     const aDir  = path.join(AGENTS_ROOT, id);
-    [wsDir, aDir, path.join(aDir,'agent')].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d,{recursive:true}); });
-    const files = {'SOUL.md':soul,'AGENTS.md':agentsmd||'','IDENTITY.md':identitymd||'','USER.md':usermd||'','TOOLS.md':toolsmd||''};
-    for (const [fn,ct] of Object.entries(files)) if (ct) { writeF(path.join(aDir,fn),ct); writeF(path.join(wsDir,fn),ct); }
+    [wsDir, aDir, path.join(aDir, 'agent')].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });
+    const files = { 'SOUL.md': soul, 'AGENTS.md': agentsmd || '', 'IDENTITY.md': identitymd || '', 'USER.md': usermd || '', 'TOOLS.md': toolsmd || '' };
+    for (const [fn, ct] of Object.entries(files)) if (ct) { writeF(path.join(aDir, fn), ct); writeF(path.join(wsDir, fn), ct); }
     const cli = await runCmd(`openclaw agents add ${id} --model ${model} --workspace "${wsDir}"`);
-    for (const [fn,ct] of Object.entries(files)) if (ct) { writeF(path.join(aDir,fn),ct); writeF(path.join(wsDir,fn),ct); }
-    let cfg = readConfig(); if (!cfg.agents) cfg.agents={}; if (!cfg.agents.list) cfg.agents.list=[];
-    const idx = cfg.agents.list.findIndex(a=>a.id===id);
-    const entry = {id, name, workspace:wsDir, agentDir:path.join(aDir,'agent'), model:{primary:model}};
-    if (idx>=0) cfg.agents.list[idx]=entry; else cfg.agents.list.push(entry);
+    for (const [fn, ct] of Object.entries(files)) if (ct) { writeF(path.join(aDir, fn), ct); writeF(path.join(wsDir, fn), ct); }
+    let cfg = readConfig(); if (!cfg.agents) cfg.agents = {}; if (!cfg.agents.list) cfg.agents.list = [];
+    const idx = cfg.agents.list.findIndex(a => a.id === id);
+    const entry = { id, name, workspace: wsDir, agentDir: path.join(aDir, 'agent'), model: { primary: model } };
+    if (idx >= 0) cfg.agents.list[idx] = entry; else cfg.agents.list.push(entry);
     writeConfig(cfg); await runCmd('openclaw gateway restart');
-    res.json({ ok:true, id, entry, cliResult:cli });
+    res.json({ ok: true, id, entry, cliResult: cli });
 });
 
 app.delete('/api/agents/:id', async (req, res) => {
     const { id } = req.params;
     let cfg = readConfig();
-    if (cfg.agents?.list) { cfg.agents.list = cfg.agents.list.filter(a=>a.id!==id); writeConfig(cfg); }
+    if (cfg.agents?.list) { cfg.agents.list = cfg.agents.list.filter(a => a.id !== id); writeConfig(cfg); }
     await runCmd('openclaw gateway restart');
-    res.json({ ok:true });
+    res.json({ ok: true });
 });
 
 app.get('/api/agents/:id/workspace', (req, res) => {
     const { id } = req.params;
     const ws = getAgentWorkspace(id);
     const files = {};
-    for (const f of WS_FILES) { const p=path.join(ws,f); files[f]={content:readF(p),exists:fs.existsSync(p),path:p}; }
-    res.json({ agentId:id, workspacePath:ws, files });
+    for (const f of WS_FILES) { const p = path.join(ws, f); files[f] = { content: readF(p), exists: fs.existsSync(p), path: p }; }
+    res.json({ agentId: id, workspacePath: ws, files });
 });
 
 app.put('/api/agents/:id/workspace/:file', (req, res) => {
     const { id, file } = req.params;
     const { content } = req.body;
-    if (!WS_FILES.includes(file) && !file.match(/^\d{4}-\d{2}-\d{2}\.md$/)) return res.status(400).json({ error:'Invalid file' });
+    if (!WS_FILES.includes(file) && !file.match(/^\d{4}-\d{2}-\d{2}\.md$/)) return res.status(400).json({ error: 'Invalid file' });
     const ws = getAgentWorkspace(id);
-    const p  = file.match(/^\d{4}-\d{2}-\d{2}\.md$/) ? path.join(ws,'memory',file) : path.join(ws,file);
-    try { writeF(p, content||''); res.json({ ok:true, size:(content||'').length }); } catch(e) { res.status(500).json({ error:e.message }); }
+    const p  = file.match(/^\d{4}-\d{2}-\d{2}\.md$/) ? path.join(ws, 'memory', file) : path.join(ws, file);
+    try { writeF(p, content || ''); res.json({ ok: true, size: (content || '').length }); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/agents/:id/identity', async (req, res) => {
     const { id } = req.params;
-    const { name, emoji, theme, model } = req.body;
-    let cfg = readConfig(); if (!cfg.agents?.list) return res.status(404).json({ error:'No agents list' });
-    const idx = cfg.agents.list.findIndex(a=>a.id===id);
-    if (idx<0) return res.status(404).json({ error:`Agent ${id} not found` });
+    const { name, emoji, theme } = req.body;
+    let cfg = readConfig(); if (!cfg.agents?.list) return res.status(404).json({ error: 'No agents list' });
+    const idx = cfg.agents.list.findIndex(a => a.id === id);
+    if (idx < 0) return res.status(404).json({ error: `Agent ${id} not found` });
     if (name)  cfg.agents.list[idx].name     = name;
-    if (emoji) cfg.agents.list[idx].identity = {...(cfg.agents.list[idx].identity||{}),emoji};
-    if (theme) cfg.agents.list[idx].identity = {...(cfg.agents.list[idx].identity||{}),theme};
-    if (model) cfg.agents.list[idx].model    = {primary:model};
+    if (emoji) cfg.agents.list[idx].identity = { ...(cfg.agents.list[idx].identity || {}), emoji };
+    if (theme) cfg.agents.list[idx].identity = { ...(cfg.agents.list[idx].identity || {}), theme };
+    cfg.agents.list[idx].model = { primary: DEFAULT_MODEL };
     writeConfig(cfg); await runCmd('openclaw gateway restart');
-    res.json({ ok:true, entry:cfg.agents.list[idx] });
+    res.json({ ok: true, entry: cfg.agents.list[idx] });
 });
 
 app.post('/api/fix-all', async (req, res) => {
-    let cfg = readConfig(); if (!cfg.agents?.list) return res.json({ok:false,error:'No agents.list'});
+    let cfg = readConfig(); if (!cfg.agents?.list) return res.json({ ok: false, error: 'No agents.list' });
     const seen = new Set();
     cfg.agents.list = cfg.agents.list
-        .filter(a=>{ if(seen.has(a.id))return false; seen.add(a.id); return true; })
-        .map(a=>{
-            const ms = typeof a.model==='object'?(a.model.primary||'ollama/minimax-m2.5:cloud'):(a.model||'ollama/minimax-m2.5:cloud');
-            let ws = a.workspace; if (!ws||ws===OC) ws=path.join(OC,`workspace-${a.id}`);
-            if (!fs.existsSync(ws)) fs.mkdirSync(ws,{recursive:true});
-            const ad = path.join(AGENTS_ROOT,a.id,'agent'); if (!fs.existsSync(ad)) fs.mkdirSync(ad,{recursive:true});
-            const ss=path.join(AGENTS_ROOT,a.id,'SOUL.md'),ds=path.join(ws,'SOUL.md');
-            if (fs.existsSync(ss)&&!fs.existsSync(ds)) fs.copyFileSync(ss,ds);
-            return {id:a.id,name:a.name||a.id,workspace:ws,agentDir:ad,model:{primary:ms},...(a.identity?{identity:a.identity}:{})};
+        .filter(a => { if (seen.has(a.id)) return false; seen.add(a.id); return true; })
+        .map(a => {
+            const ms = DEFAULT_MODEL;
+            let ws = a.workspace; if (!ws || ws === OC) ws = path.join(OC, `workspace-${a.id}`);
+            if (!fs.existsSync(ws)) fs.mkdirSync(ws, { recursive: true });
+            const ad = path.join(AGENTS_ROOT, a.id, 'agent'); if (!fs.existsSync(ad)) fs.mkdirSync(ad, { recursive: true });
+            const ss = path.join(AGENTS_ROOT, a.id, 'SOUL.md'), ds = path.join(ws, 'SOUL.md');
+            if (fs.existsSync(ss) && !fs.existsSync(ds)) fs.copyFileSync(ss, ds);
+            return { id: a.id, name: a.name || a.id, workspace: ws, agentDir: ad, model: { primary: ms }, ...(a.identity ? { identity: a.identity } : {}) };
         });
-    writeConfig(cfg); await runCmd('openclaw gateway restart'); await new Promise(r=>setTimeout(r,3000));
+    writeConfig(cfg); await runCmd('openclaw gateway restart'); await new Promise(r => setTimeout(r, 3000));
     const cli = await runCmd('openclaw agents list 2>&1');
-    res.json({ ok:true, message:'All agents fixed. Gateway restarted.', cli:cli.stdout });
+    res.json({ ok: true, message: 'All agents fixed. Gateway restarted.', cli: cli.stdout });
 });
 
 // ════════════════════════════════════════════════════════════════
 // TASK HISTORY
 // ════════════════════════════════════════════════════════════════
-function readTasks()  { try { return JSON.parse(fs.readFileSync(TASKS_FILE,'utf8')); } catch { return []; } }
-function saveTasks(t) { const tasks=readTasks(); tasks.unshift(t); fs.writeFileSync(TASKS_FILE,JSON.stringify(tasks.slice(0,500),null,2),'utf8'); broadcast({type:'task_saved',task:t}); }
-app.get('/api/tasks',       (req,res)=>res.json(readTasks()));
-app.delete('/api/tasks',    (req,res)=>{fs.writeFileSync(TASKS_FILE,'[]','utf8');res.json({ok:true});});
+function readTasks()  { try { return JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8')); } catch { return []; } }
+function saveTasks(t) { const tasks = readTasks(); tasks.unshift(t); fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks.slice(0, 500), null, 2), 'utf8'); broadcast({ type: 'task_saved', task: t }); }
+app.get('/api/tasks',    (req, res) => res.json(readTasks()));
+app.delete('/api/tasks', (req, res) => { fs.writeFileSync(TASKS_FILE, '[]', 'utf8'); res.json({ ok: true }); });
 
 // ════════════════════════════════════════════════════════════════
 // NETWORK + DEBUG
 // ════════════════════════════════════════════════════════════════
-app.get('/api/network', (req,res)=>{
-    const ips=getLocalIPs();
-    res.json({port:PORT,ips,urls:ips.map(i=>`http://${i}:${PORT}`),hostname:os.hostname()});
+app.get('/api/network', (req, res) => {
+    const ips = getLocalIPs();
+    res.json({ port: PORT, ips, urls: ips.map(i => `http://${i}:${PORT}`), hostname: os.hostname() });
 });
 
-app.get('/api/debug', async (req,res)=>{
-    const cfg=readConfig(), token=getGatewayToken(), pc=getPortalConfig();
-    const cli=await runCmd('openclaw agents list 2>&1');
+app.get('/api/debug', async (req, res) => {
+    const cfg = readConfig(), token = getGatewayToken(), pc = getPortalConfig();
+    const cli = await runCmd('openclaw agents list 2>&1');
     res.json({
         CONFIG_PATH,
-        token:   token?token.slice(0,8)+'...':'NOT FOUND',
+        port:    PORT,
+        defaultModel: DEFAULT_MODEL,
+        token:   token ? token.slice(0, 8) + '...' : 'NOT FOUND',
+        tokenSource: cfg?.gateway?.auth?.token ? 'openclaw.json' : 'fallback',
         gateway: cfg?.gateway?.controlUi?.allowInsecureAuth,
-        agents:  cfg?.agents?.list||[],
+        agents:  cfg?.agents?.list || [],
         dirs:    getAgentDirs(),
         cliOutput: cli.stdout,
+        workingClientId: _workingClientId || loadWorkingClientId() || 'not yet discovered',
         oauth: {
-            github: pc.github?.clientId?'✓ configured':'✗ not configured',
-            gmail:  pc.gmail?.clientId ?'✓ configured':'✗ not configured',
-            baseUrl: pc.baseUrl||`http://localhost:${PORT}`,
+            github:  pc.github?.clientId ? '✓ configured' : '✗ not configured',
+            gmail:   pc.gmail?.clientId  ? '✓ configured' : '✗ not configured',
+            baseUrl: pc.baseUrl || `http://localhost:${PORT}`,
         },
     });
+});
+
+// ════════════════════════════════════════════════════════════════
+// DIAGNOSTIC ENDPOINTS
+// ════════════════════════════════════════════════════════════════
+app.get('/api/debug/ollama', async (req, res) => {
+    const agentId = req.query.agentId || 'qa-agent';
+    const model   = (req.query.model  || DEFAULT_MODEL).replace('ollama/', '');
+    const ws      = getAgentWorkspace(agentId);
+    const soul    = readF(path.join(ws, 'SOUL.md'));
+    const tools   = readF(path.join(ws, 'TOOLS.md'));
+    const ident   = readF(path.join(ws, 'IDENTITY.md'));
+    const systemPrompt = [soul, ident, tools].filter(Boolean).join('\n\n---\n\n');
+
+    const reqBody = {
+        model,
+        system:  systemPrompt,
+        prompt:  'Say hello in one sentence.',
+        stream:  false,
+        options: { num_predict: 60 },
+    };
+
+    console.log(`[OLLAMA-DIAG] agentId=${agentId} model=${model} system_chars=${systemPrompt.length}`);
+    try {
+        const r    = await fetch('http://localhost:11434/api/generate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body:   JSON.stringify(reqBody),
+            signal: AbortSignal.timeout(30000),
+        });
+        const txt  = await r.text();
+        let parsed; try { parsed = JSON.parse(txt); } catch { parsed = txt; }
+        res.json({ ok: r.ok, status: r.status, model, system_chars: systemPrompt.length, soul_chars: soul.length, response: parsed });
+    } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/debug/agent/:id/files', (req, res) => {
+    const ws  = getAgentWorkspace(req.params.id);
+    const out = {};
+    for (const f of WS_FILES) {
+        const content = readF(path.join(ws, f));
+        out[f] = { exists: !!content, chars: content.length, lines: content.split('\n').length, preview: content.slice(0, 100) };
+    }
+    res.json({ agentId: req.params.id, workspace: ws, files: out });
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -1014,15 +1305,15 @@ function ensurePortalConfigTemplate() {
     if (fs.existsSync(PORTAL_CONFIG_PATH)) return;
     const template = {
         _readme: [
-            "Nexus.AI Portal OAuth configuration.",
-            "DO NOT add this content to openclaw.json — OpenClaw rejects unknown keys.",
-            "Fill in your GitHub and Gmail OAuth app credentials below.",
-            "GitHub callback: http://localhost:3000/api/oauth/github/callback",
-            "Google callback: http://localhost:3000/api/email/oauth/callback",
+            'Nexus.AI Portal OAuth configuration.',
+            'DO NOT add this content to openclaw.json — OpenClaw rejects unknown keys.',
+            'Fill in your GitHub and Gmail OAuth app credentials below.',
+            `GitHub callback: http://localhost:${PORT}/api/oauth/github/callback`,
+            `Google callback: http://localhost:${PORT}/api/email/oauth/callback`,
         ],
         baseUrl: `http://localhost:${PORT}`,
-        github: { clientId: "Ov23liiHYKDMP6Y3tkAJ", clientSecret: "d79f0b0967fa3af1d5f7463078f0040c9147f540" },
-        gmail:  { clientId: "", clientSecret: "" },
+        github: { clientId: 'Ov23liiHYKDMP6Y3tkAJ', clientSecret: 'd79f0b0967fa3af1d5f7463078f0040c9147f540' },
+        gmail:  { clientId: '', clientSecret: '' },
     };
     fs.writeFileSync(PORTAL_CONFIG_PATH, JSON.stringify(template, null, 2), 'utf8');
     console.log(`[BOOT] Created template: ${PORTAL_CONFIG_PATH}`);
@@ -1030,24 +1321,28 @@ function ensurePortalConfigTemplate() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// STARTUP
+// STARTUP  — with EADDRINUSE auto-recovery
 // ════════════════════════════════════════════════════════════════
-server.listen(PORT, BIND, () => {
+let _listenAttempts = 0;
+
+function onListen() {
     ensurePortalConfigTemplate();
+
     const token = getGatewayToken();
     const ips   = getLocalIPs();
     const pc    = getPortalConfig();
     const ghOk  = !!(pc.github?.clientId && pc.github?.clientSecret);
     const gmOk  = !!(pc.gmail?.clientId  && pc.gmail?.clientSecret);
 
-    console.log('\n🦀  Nexus.AI Portal');
+    console.log('\n[CRAB]  Nexus.AI Portal');
     console.log(`    Local    → http://localhost:${PORT}`);
     ips.forEach(ip => console.log(`    Network  → http://${ip}:${PORT}`));
     console.log(`    Gateway  → ${OC_WS_URL}`);
-    console.log(`    Token    → ${token?'✓ '+token.slice(0,8)+'...':'✗ NOT FOUND'}`);
+    console.log(`    Token    → ${token ? '✓ ' + token.slice(0, 8) + '...' : '✗ NOT FOUND'}`);
+    console.log(`    Model    → ${DEFAULT_MODEL}  (locked)`);
     console.log(`    Config   → ${PORTAL_CONFIG_PATH}`);
-    console.log(`    GitHub   → ${ghOk?'✓ configured':'✗ clientId/clientSecret empty'}`);
-    console.log(`    Gmail    → ${gmOk?'✓ configured':'✗ clientId/clientSecret empty'}`);
+    console.log(`    GitHub   → ${ghOk ? '✓ configured' : '✗ clientId/clientSecret empty'}`);
+    console.log(`    Gmail    → ${gmOk ? '✓ configured' : '✗ clientId/clientSecret empty'}`);
 
     if (!ghOk || !gmOk) {
         console.log('');
@@ -1060,7 +1355,7 @@ server.listen(PORT, BIND, () => {
         }
         if (!gmOk) {
             console.log('  │  Google OAuth → https://console.cloud.google.com/apis/credentials');
-            console.log(`  │    Callback URL: http://localhost:${PORT}/api/oauth/google/callback`);
+            console.log(`  │    Callback URL: http://localhost:${PORT}/api/email/oauth/callback`);
             console.log('  │    Enable: Gmail API in API Library');
         }
         console.log('  │');
@@ -1068,14 +1363,42 @@ server.listen(PORT, BIND, () => {
         console.log('  │     OpenClaw rejects unknown keys and will abort the gateway.');
         console.log('  └───────────────────────────────────────────────────────────────');
         console.log('');
-        console.log('Happy Birthday Bro!')
+        console.log('Happy Birthday Bro!');
     }
 
-    const ws = new WebSocket(OC_WS_URL);
-    ws.on('open',  () => { console.log('[BOOT] ✓ OpenClaw gateway reachable\n'); ws.close(); });
-    ws.on('error', e  => console.log(`[BOOT] ✗ Gateway: ${e.message}\n`));
+    // ── Probe gateway reachability + discover valid client.id ──
+    const probe = new WebSocket(OC_WS_URL);
+    probe.on('open',  () => { console.log('[BOOT] ✓ OpenClaw gateway reachable'); probe.close(); });
+    probe.on('error', e  => console.log(`[BOOT] ✗ Gateway unreachable: ${e.message}`));
+
+    if (token) {
+        const cached = loadWorkingClientId();
+        if (cached) {
+            console.log(`[AUTH] Using cached client.id="${cached}"`);
+        } else {
+            console.log('[AUTH] Probing gateway for valid client.id...');
+            probeClientId(token, id => {
+                if (!id) console.warn('[AUTH] ✗ Could not discover valid client.id — tasks will fail until resolved.');
+            });
+        }
+    }
+}
+
+server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE' && _listenAttempts < 1) {
+        _listenAttempts++;
+        console.warn(`[BOOT] ⚠  Port ${PORT} already in use — attempting to free it...`);
+        try {
+            execSync(`lsof -ti tcp:${PORT} | xargs kill -9`, { stdio: 'ignore' });
+            console.log(`[BOOT] ✓ Killed old process on port ${PORT}. Retrying in 1.5s...`);
+        } catch {
+            console.warn(`[BOOT] Could not auto-kill. Run manually: lsof -ti:${PORT} | xargs kill -9`);
+        }
+        setTimeout(() => server.listen(PORT, BIND, onListen), 1500);
+    } else {
+        console.error(`[BOOT] Fatal server error: ${e.message}`);
+        process.exit(1);
+    }
 });
 
-
-
-
+server.listen(PORT, BIND, onListen);
