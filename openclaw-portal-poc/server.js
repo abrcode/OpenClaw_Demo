@@ -39,114 +39,6 @@ const crypto     = require('crypto');
 const http       = require('http');
 const { exec, execSync } = require('child_process');
 const WebSocket  = require('ws');
-const multer     = require('multer');
-
-// ── Attachment upload dir ─────────────────────────────────────
-const UPLOADS_DIR = path.join(os.tmpdir(), 'nexus-portal-uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const upload = multer({
-    dest: UPLOADS_DIR,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
-});
-
-// ── Model attachment capabilities ────────────────────────────
-// Defines what file types each model can understand.
-// Used to validate + inform UI which attachments are supported.
-const MODEL_ATTACHMENT_CAPS = {
-    // Default / minimax
-    'ollama/minimax-m2.7:cloud': {
-        text:  true,   // .txt .md .csv .json .xml .yaml .log .html .css .js .ts .py .java .c .cpp .sh ...
-        code:  true,   // same as text but surfaced separately in UI
-        image: false,
-        video: false,
-        audio: false,
-        pdf:   false,
-    },
-    // Vision-capable models
-    'ollama/llava':        { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
-    'ollama/llava:13b':    { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
-    'ollama/bakllava':     { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
-    'ollama/moondream':    { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
-    'ollama/minicpm-v':    { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
-    // GPT-4o class
-    'openai/gpt-4o':       { text: true, code: true, image: true,  video: false, audio: false, pdf: true  },
-    'openai/gpt-4o-mini':  { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
-    // Claude models
-    'anthropic/claude-3-5-sonnet': { text: true, code: true, image: true, video: false, audio: false, pdf: true },
-    'anthropic/claude-3-haiku':    { text: true, code: true, image: true, video: false, audio: false, pdf: false },
-    // Gemini
-    'google/gemini-pro':        { text: true, code: true, image: true, video: true,  audio: true,  pdf: true },
-    'google/gemini-1.5-pro':    { text: true, code: true, image: true, video: true,  audio: true,  pdf: true },
-    'google/gemini-flash':      { text: true, code: true, image: true, video: false, audio: false, pdf: true },
-    // Default fallback: text/code only
-    '_default': { text: true, code: true, image: false, video: false, audio: false, pdf: false },
-};
-
-// MIME → category mapping
-const MIME_CATEGORIES = {
-    // Text / code
-    'text/plain':               'text',
-    'text/markdown':            'text',
-    'text/csv':                 'text',
-    'text/html':                'code',
-    'text/css':                 'code',
-    'text/javascript':          'code',
-    'application/json':         'text',
-    'application/xml':          'text',
-    'application/x-yaml':       'text',
-    'application/x-sh':         'code',
-    'application/x-python':     'code',
-    // Images
-    'image/jpeg':               'image',
-    'image/png':                'image',
-    'image/gif':                'image',
-    'image/webp':               'image',
-    'image/svg+xml':            'image',
-    // Video
-    'video/mp4':                'video',
-    'video/webm':               'video',
-    'video/mpeg':               'video',
-    'video/quicktime':          'video',
-    // Audio
-    'audio/mpeg':               'audio',
-    'audio/wav':                'audio',
-    'audio/ogg':                'audio',
-    'audio/webm':               'audio',
-    // PDF
-    'application/pdf':          'pdf',
-};
-
-// Extension fallback when MIME is octet-stream
-const EXT_CATEGORIES = {
-    txt: 'text', md: 'text', csv: 'text', json: 'text', xml: 'text',
-    yaml: 'text', yml: 'text', log: 'text', env: 'text', toml: 'text',
-    js: 'code', ts: 'code', jsx: 'code', tsx: 'code', py: 'code',
-    java: 'code', c: 'code', cpp: 'code', cs: 'code', go: 'code',
-    rs: 'code', php: 'code', rb: 'code', swift: 'code', kt: 'code',
-    html: 'code', css: 'code', sh: 'code', bash: 'code', sql: 'code',
-    png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', svg: 'image',
-    mp4: 'video', webm: 'video', mov: 'video', avi: 'video', mkv: 'video',
-    mp3: 'audio', wav: 'audio', ogg: 'audio', m4a: 'audio',
-    pdf: 'pdf',
-};
-
-function getFileCategory(mimetype, filename) {
-    if (MIME_CATEGORIES[mimetype]) return MIME_CATEGORIES[mimetype];
-    const ext = (filename || '').split('.').pop()?.toLowerCase();
-    return EXT_CATEGORIES[ext] || 'text';
-}
-
-function getModelCaps(model) {
-    if (!model) return MODEL_ATTACHMENT_CAPS['_default'];
-    // Exact match
-    if (MODEL_ATTACHMENT_CAPS[model]) return MODEL_ATTACHMENT_CAPS[model];
-    // Prefix match
-    for (const key of Object.keys(MODEL_ATTACHMENT_CAPS)) {
-        if (key !== '_default' && model.startsWith(key)) return MODEL_ATTACHMENT_CAPS[key];
-    }
-    return MODEL_ATTACHMENT_CAPS['_default'];
-}
 
 const app    = express();
 const server = http.createServer(app);
@@ -154,10 +46,10 @@ const PORT   = parseInt(process.env.PORT || '3001', 10);
 const BIND   = '0.0.0.0';
 
 // ── Default model — workspace is locked to this one ──────────
-const DEFAULT_MODEL = 'ollama/minimax-m2.7:cloud';
+const DEFAULT_MODEL = 'ollama/gemma3:4b-cloud';
 
 // ── Gateway token fallback (if openclaw.json doesn't expose it) ──
-const FALLBACK_GATEWAY_TOKEN = '89bb4a09636d7b7e54a09639c8f3273c4936d150347132a4';
+const FALLBACK_GATEWAY_TOKEN = '079d3ac8543c5de7a0030f2024659b97de49551df8ac8714';
 
 // ── Known client identities to try in order ──────────────────
 // The gateway schema validates client.id against a strict constant/anyOf.
@@ -172,7 +64,7 @@ const CLIENT_ID_CANDIDATES = [
     'service',
 ];
 
-app.use(bodyParser.json({ limit: '32mb' }));
+app.use(bodyParser.json({ limit: '4mb' }));
 app.use(express.static('public'));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -968,10 +860,14 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
     ws.on('message', raw => {
         const str = raw.toString();
 
+        // ── Full debug log every raw frame ──────────────────────
+        // Only log non-chunk frames to avoid flooding, but always
+        // log anything that looks like an error or lifecycle event
         let f; try { f = JSON.parse(str); } catch { onLog(`[WS] non-JSON frame: ${str.slice(0,200)}`); return; }
 
         const { type, event, id: fid, ok, payload, error } = f;
 
+        // Log everything except pure text chunks (too noisy)
         const isTextChunk = type === 'event' && event === 'agent' && (payload?.stream === 'assistant' || payload?.stream === 'delta' || payload?.stream === 'text');
         if (!isTextChunk) {
             onLog(`[WS] ← ${JSON.stringify(f).slice(0, 300)}`);
@@ -1017,6 +913,9 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
             connected = true;
             onLog(`[WS] ✓ authenticated (proto=${payload?.protocol})`);
 
+            // ── Discover the correct sessionKey from the gateway ──
+            // Try agent-prefixed key first (most common openclaw format),
+            // fallback options sent after first error response.
             sessionKey = `agent:${agentId}:main`;
             onLog(`[WS] → chat.send  sessionKey=${sessionKey}`);
             ws.send(JSON.stringify({
@@ -1031,6 +930,7 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
                 const errDetail = JSON.stringify(error || payload || '');
                 onLog(`[WS] ✗ chat.send rejected: ${errDetail}`);
 
+                // If session not found, try alternative session key formats
                 if (errDetail.includes('session') || errDetail.includes('SESSION') || errDetail.includes('not found')) {
                     const altKeys = [
                         agentId,
@@ -1073,6 +973,7 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
         if (type === 'event' && event === 'agent') {
             const { stream, data } = payload || {};
 
+            // Text chunks
             if (stream === 'assistant' || stream === 'delta' || stream === 'text') {
                 let chunk = '';
                 if (typeof data === 'string')    chunk = data;
@@ -1083,6 +984,7 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
                 return;
             }
 
+            // Lifecycle events
             if (stream === 'lifecycle') {
                 const ph   = data?.phase;
                 const info = data ? ` | ${JSON.stringify(data).slice(0, 200)}` : '';
@@ -1098,10 +1000,12 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
                     const errMsg = data?.error || data?.message || data?.reason || JSON.stringify(data);
                     onLog(`[WS] lifecycle error #${errorCount}: ${errMsg}`);
 
+                    // 500 from Ollama = model crashed or rejected the request.
+                    // openclaw retries forever but it never recovers — fail fast.
                     const is500 = errMsg.includes('500 {') || errMsg.includes('"500"') || errMsg.includes('Internal Server Error');
                     if (is500 || errorCount >= 2) {
                         const hint = is500
-                            ? ' | FIX: run `ollama run minimax-m2.7:cloud` in a terminal to see the real error, OR pull local model: `ollama pull minimax-m2.7` and update openclaw.json'
+                            ? ' | FIX: run `ollama run gemma3:4b-cloud` in a terminal to see the real error, OR pull local model: `ollama pull gemma3:4b` and update openclaw.json'
                             : '';
                         finish(`Agent 500 error: ${errMsg}${hint}`);
                         return;
@@ -1110,10 +1014,11 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
                     return;
                 }
 
-                if (ph === 'start') { return; }
+                if (ph === 'start') { return; } // do NOT reset errorCount — we want to accumulate across retries
                 return;
             }
 
+            // Terminal stream types
             if (stream === 'done' || stream === 'end' || stream === 'complete' || stream === 'finish') {
                 if (!gotChunk && data) {
                     const t = typeof data === 'string' ? data : (data?.text || data?.content || '');
@@ -1122,16 +1027,19 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
                 finish(null); return;
             }
 
+            // Explicit error stream
             if (stream === 'error') {
                 const msg = typeof data === 'string' ? data : (data?.message || data?.error || JSON.stringify(data));
                 finish(`Agent stream error: ${msg}`);
                 return;
             }
 
+            // Unknown stream — log and continue
             onLog(`[WS] unknown agent stream="${stream}" data=${JSON.stringify(data).slice(0,150)}`);
             return;
         }
 
+        // ── Catch-all: log any frame we don't recognise ──────────
         if (type === 'event' && (event === 'chat' || event === 'message')) return;
 
         if (type === 'res' && runId && payload?.runId === runId) {
@@ -1154,44 +1062,10 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// ATTACHMENT CAPABILITIES  — what each model supports
-// ════════════════════════════════════════════════════════════════
-app.get('/api/agents/:id/attachment-caps', (req, res) => {
-    const { id } = req.params;
-    const cfg   = readConfig();
-    const agent = cfg?.agents?.list?.find(a => a.id === id);
-    const model = agent?.model?.primary || agent?.model || DEFAULT_MODEL;
-    const caps  = getModelCaps(model);
-    res.json({ agentId: id, model, caps });
-});
-
-// ════════════════════════════════════════════════════════════════
-// ATTACHMENT UPLOAD  — multipart file → temp disk, returns id
-// ════════════════════════════════════════════════════════════════
-app.post('/api/attachments/upload', upload.array('files', 10), (req, res) => {
-    try {
-        const files = (req.files || []).map(f => {
-            const category = getFileCategory(f.mimetype, f.originalname);
-            return {
-                id:           f.filename,
-                originalname: f.originalname,
-                mimetype:     f.mimetype,
-                size:         f.size,
-                category,
-                path:         f.path,
-            };
-        });
-        res.json({ ok: true, files });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// ════════════════════════════════════════════════════════════════
 // TASK ENDPOINT  — SSE streaming + delegation + token injection
 // ════════════════════════════════════════════════════════════════
 app.post('/api/task', async (req, res) => {
-    const { agentId, task, fromAgent, attachments } = req.body;
+    const { agentId, task, fromAgent } = req.body;
     if (!agentId || !task) return res.status(400).json({ error: 'agentId + task required' });
 
     const cfg       = readConfig();
@@ -1202,43 +1076,7 @@ app.post('/api/task', async (req, res) => {
     const ctxLines = [];
     if (creds.github) ctxLines.push(`[GitHub: You are authenticated as @${creds.github.login}. Use this for all GitHub/code operations.]`);
     if (creds.gmail)  ctxLines.push(`[Gmail: You are authenticated as ${creds.gmail.email}. Use this for all email operations.]`);
-
-    // ── Build attachment context ──────────────────────────────
-    const attachLines = [];
-    const cleanupFiles = [];
-    if (attachments && attachments.length > 0) {
-        for (const att of attachments) {
-            const filePath = path.join(UPLOADS_DIR, att.id);
-            cleanupFiles.push(filePath);
-            const cat = att.category || 'text';
-
-            if (cat === 'text' || cat === 'code') {
-                try {
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    const lang = att.originalname.split('.').pop() || '';
-                    attachLines.push(`\n[Attachment: ${att.originalname} (${cat})]\n\`\`\`${lang}\n${content.slice(0, 80000)}\n\`\`\``);
-                } catch (e) {
-                    attachLines.push(`\n[Attachment: ${att.originalname} — could not read: ${e.message}]`);
-                }
-            } else if (cat === 'image') {
-                try {
-                    const imgData = fs.readFileSync(filePath).toString('base64');
-                    attachLines.push(`\n[Attachment: ${att.originalname} (image, base64)]\ndata:${att.mimetype};base64,${imgData.slice(0, 4_000_000)}`);
-                } catch (e) {
-                    attachLines.push(`\n[Attachment: ${att.originalname} — image read error: ${e.message}]`);
-                }
-            } else {
-                // video/audio/pdf — not inline-injectable to a text model; describe what was attached
-                attachLines.push(`\n[Attachment: ${att.originalname} (${cat}, ${(att.size/1024).toFixed(1)} KB) — file attached but model may not support direct ${cat} processing]`);
-            }
-        }
-    }
-
-    const enriched = [
-        ...ctxLines,
-        ...(attachLines.length ? [`\n--- ATTACHED FILES ---${attachLines.join('\n')}\n--- END ATTACHMENTS ---`] : []),
-        task,
-    ].filter(Boolean).join('\n\n');
+    const enriched = ctxLines.length ? ctxLines.join('\n') + '\n\n' + task : task;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -1247,13 +1085,9 @@ app.post('/api/task', async (req, res) => {
     res.flushHeaders();
 
     const sse = o => { try { if (!res.writableEnded) res.write(`data: ${JSON.stringify(o)}\n\n`); } catch {} };
-    const end = () => {
-        try { if (!res.writableEnded) { res.write('data: [DONE]\n\n'); res.end(); } } catch {}
-        // Cleanup temp upload files
-        for (const fp of cleanupFiles) { try { fs.unlinkSync(fp); } catch {} }
-    };
+    const end = () => { try { if (!res.writableEnded) { res.write('data: [DONE]\n\n'); res.end(); } } catch {} };
 
-    console.log(`\n${'─'.repeat(60)}\n[TASK] agent=${agentId}  delegations=${delegations.map(d => d.agent.id).join(',') || 'none'}  attachments=${attachments?.length||0}\n[TASK] ${task.slice(0, 100)}\n${'─'.repeat(60)}`);
+    console.log(`\n${'─'.repeat(60)}\n[TASK] agent=${agentId}  delegations=${delegations.map(d => d.agent.id).join(',') || 'none'}\n[TASK] ${task.slice(0, 100)}\n${'─'.repeat(60)}`);
 
     if (delegations.length)
         sse({ type: 'delegation_detected', agents: delegations.map(d => ({ agentId: d.agent.id, agentName: d.agent.name, mention: d.mention })) });
@@ -1265,7 +1099,7 @@ app.post('/api/task', async (req, res) => {
         chunk => sse({ chunk }),
         async fullText => {
             sse({ done: true, fullText });
-            saveTasks({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, agentId, agentName, task, response: fullText, status: 'done', fromAgent: fromAgent || null, delegatedTo: delegations.map(d => d.agent.id), attachments: (attachments||[]).map(a=>({name:a.originalname,category:a.category,size:a.size})), createdAt: new Date().toISOString() });
+            saveTasks({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, agentId, agentName, task, response: fullText, status: 'done', fromAgent: fromAgent || null, delegatedTo: delegations.map(d => d.agent.id), createdAt: new Date().toISOString() });
 
             for (const { agent, mention } of delegations) {
                 sse({ type: 'delegation_start', agentId: agent.id, agentName: agent.name });
@@ -1273,8 +1107,6 @@ app.post('/api/task', async (req, res) => {
                 let sub  = `[Delegated from: ${agentName}]\n\n${task.replace(mention, '').trim()}`;
                 if (ac.github) sub = `[GitHub: @${ac.github.login}]\n${sub}`;
                 if (ac.gmail)  sub = `[Gmail: ${ac.gmail.email}]\n${sub}`;
-                // Pass along text/code attachments to delegated agents too
-                if (attachLines.length) sub = `\n--- ATTACHED FILES ---${attachLines.join('\n')}\n--- END ATTACHMENTS ---\n\n${sub}`;
                 await new Promise(resolve => sendToAgent(agent.id, sub,
                     m => sse({ log: `[${agent.name}] ${m}` }),
                     c => sse({ delegationChunk: c, agentId: agent.id, agentName: agent.name }),
@@ -1442,6 +1274,11 @@ app.get('/api/debug', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 // DIAGNOSTIC ENDPOINTS
 // ════════════════════════════════════════════════════════════════
+
+// GET /api/debug/ollama?agentId=qa-agent
+// Calls Ollama directly with the agent's SOUL as system prompt.
+// If this returns 500, the SOUL.md is too large or Ollama is broken.
+// If this works fine, the issue is in openclaw's gateway layer.
 app.get('/api/debug/ollama', async (req, res) => {
     const agentId = req.query.agentId || 'qa-agent';
     const model   = (req.query.model  || DEFAULT_MODEL).replace('ollama/', '');
@@ -1472,6 +1309,7 @@ app.get('/api/debug/ollama', async (req, res) => {
     } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
+// GET /api/debug/agent/:id/files  — show workspace file sizes
 app.get('/api/debug/agent/:id/files', (req, res) => {
     const ws  = getAgentWorkspace(req.params.id);
     const out = {};
@@ -1555,6 +1393,7 @@ function onListen() {
     probe.on('open',  () => { console.log('[BOOT] ✓ OpenClaw gateway reachable'); probe.close(); });
     probe.on('error', e  => console.log(`[BOOT] ✗ Gateway unreachable: ${e.message}`));
 
+    // Discover/confirm working client.id in background
     if (token) {
         const cached = loadWorkingClientId();
         if (cached) {
@@ -1568,6 +1407,7 @@ function onListen() {
     }
 }
 
+// Handle port-in-use by killing the occupant and retrying once
 server.on('error', (e) => {
     if (e.code === 'EADDRINUSE' && _listenAttempts < 1) {
         _listenAttempts++;
