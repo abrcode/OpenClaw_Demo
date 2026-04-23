@@ -244,6 +244,16 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
 .att-caps-chip.off{background:rgba(244,63,94,.04);border-color:rgba(244,63,94,.15);color:#991b1b;opacity:.7}
 .att-unsupported{font-size:.63rem;color:var(--rose);padding:.18rem .62rem;display:none}
 .att-unsupported.show{display:block}
+/* Drag-and-drop overlay on inp-wrap */
+.inp-wrap.drag-over{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-l)}
+/* Rich preview bar — image thumbs + PDF icon */
+.att-preview-bar{display:flex;align-items:flex-end;gap:.45rem;padding:.18rem .62rem .1rem;flex-wrap:wrap;min-height:0}
+.att-preview-bar:empty{display:none}
+.att-thumb{position:relative;flex-shrink:0}
+.att-thumb img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border2);display:block}
+.att-thumb-pdf{width:52px;height:52px;border-radius:8px;border:1.5px solid rgba(244,63,94,.35);background:rgba(244,63,94,.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:1.3rem;color:var(--rose)}
+.att-thumb-pdf span{font-size:.48rem;font-weight:700;color:var(--rose);letter-spacing:.04em;text-transform:uppercase}
+.att-thumb-rm{position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:var(--rose);color:#fff;border:none;cursor:pointer;font-size:.65rem;line-height:16px;text-align:center;padding:0;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .tr-sec{padding:.72rem .88rem;border-bottom:1px solid var(--border);flex-shrink:0}
 .tr-ttl{font-size:.63rem;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.45rem}
 .tr-row{display:flex;justify-content:space-between;align-items:center;padding:.2rem 0;font-size:.7rem}
@@ -528,10 +538,11 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
             <div class="inp-wrap">
               <textarea class="task-inp" id="taskInp" placeholder="Describe the task… use @AgentName to delegate automatically" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
               <div class="att-bar" id="attBar"></div>
+              <div class="att-preview-bar" id="attPreviewBar"></div>
               <div class="inp-tb">
-                <button class="btn-attach" id="attBtn" onclick="triggerAttach()" title="Attach files">📎 Attach</button>
+                <button class="btn-attach" id="attBtn" onclick="triggerAttach()" title="Attach files (PDF, Image, Text, Code)">📎 Attach</button>
                 <input type="file" id="attInput" multiple style="display:none" onchange="handleAttachFiles(event)">
-                <span class="inp-hint"><kbd>⌘↵</kbd> send · <code>@AgentName</code> delegate</span>
+                <span class="inp-hint"><kbd>⌘↵</kbd> send · <code>@AgentName</code> delegate · drag &amp; drop files</span>
                 <button class="btn-clr" onclick="document.getElementById('taskInp').value='';autoResize(document.getElementById('taskInp'))">Clear</button>
                 <button class="btn-send" id="sendBtn" onclick="sendTask()">Send task</button>
               </div>
@@ -582,7 +593,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
             <div class="fg"><label class="fl">Agent name<span class="fl-req">*</span></label><input class="fi" id="cName" placeholder="e.g. QAEngineer, CodeReviewer..." oninput="updatePreview()"></div>
             <div class="fg"><label class="fl">Model</label>
               <div class="model-grid" style="grid-template-columns:1fr">
-                <label class="model-opt sel"><input type="radio" name="mdl" value="ollama/minimax-m2.7:cloud" checked onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">minimax-m2.7:cloud </div><div class="model-pv">ollama &middot; the only model this workspace uses</div></div></label>
+                <label class="model-opt sel"><input type="radio" name="mdl" value="ollama/gemma4:31b-cloud" checked onchange="updatePreview()"><div class="model-radio"></div><div><div class="model-nm">gemma4:31b-cloud ✨</div><div class="model-pv">ollama · multimodal: text + image + PDF</div></div></label>
               </div>
             </div>
           </div>
@@ -621,7 +632,7 @@ body{font-family:var(--sans);color:var(--text);font-size:13px;line-height:1.5}
           <div class="prev-card">
             <div class="pv-c">// agent.config</div>
             <div class="pv-r"><span class="pv-k">id</span><span class="pv-eq">=</span><span class="pv-v" id="pv-id">???</span></div>
-            <div class="pv-r"><span class="pv-k">model</span><span class="pv-eq">=</span><span class="pv-v m" id="pv-model">minimax-m2.7:cloud</span></div>
+            <div class="pv-r"><span class="pv-k">model</span><span class="pv-eq">=</span><span class="pv-v m" id="pv-model">qwen3.5:cloud</span></div>
             <div class="pv-r"><span class="pv-k">workspace</span><span class="pv-eq">=</span><span class="pv-v f" id="pv-ws">~/.openclaw/workspace-???</span></div>
           </div>
           <div style="font-size:.63rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:.72rem 0 .38rem">SOUL.md preview</div>
@@ -1208,23 +1219,25 @@ function updDC(id,status,text){
 // ════════════════════════════════════════════════════════════════
 // ATTACHMENTS
 // ════════════════════════════════════════════════════════════════
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB — mirrors server limit
+
 async function loadAgentAttachCaps(agentId){
   try{
     const d=await fetch(`/api/agents/${agentId}/attachment-caps`).then(r=>r.json());
     agentAttachCaps=d.caps||{text:true,code:true,image:false,video:false,audio:false,pdf:false};
     renderAttachCaps();
+    initDragDrop();
   }catch{agentAttachCaps={text:true,code:true,image:false,video:false,audio:false,pdf:false};}
 }
 
 function renderAttachCaps(){
   const el=document.getElementById('attCaps');if(!el||!agentAttachCaps)return;
-  const all=[['text','Text/CSV/JSON'],['code','Code files'],['image','Images'],['video','Video'],['audio','Audio'],['pdf','PDF']];
-  el.innerHTML='Supported attachments: '+all.map(([k,lbl])=>{
+  const all=[['text','Text/CSV/JSON'],['code','Code files'],['image','Images'],['pdf','PDF'],['video','Video'],['audio','Audio']];
+  el.innerHTML='Supported: '+all.map(([k,lbl])=>{
     const on=agentAttachCaps[k];
     return `<span class="att-caps-chip ${on?'on':'off'}">${on?'✓':'✗'} ${lbl}</span>`;
   }).join('');
   el.classList.add('show');
-  // Update file input accept attribute
   buildAcceptAttr();
 }
 
@@ -1232,12 +1245,24 @@ function buildAcceptAttr(){
   if(!agentAttachCaps)return;
   const parts=[];
   if(agentAttachCaps.text||agentAttachCaps.code) parts.push('.txt,.md,.csv,.json,.xml,.yaml,.yml,.log,.js,.ts,.jsx,.tsx,.py,.java,.c,.cpp,.cs,.go,.rs,.php,.rb,.swift,.kt,.html,.css,.sh,.sql,.env,.toml');
-  if(agentAttachCaps.image) parts.push('image/*');
+  if(agentAttachCaps.image) parts.push('.png,.jpg,.jpeg,.gif,.webp,.svg');
+  if(agentAttachCaps.pdf)   parts.push('.pdf');
   if(agentAttachCaps.video) parts.push('video/*');
   if(agentAttachCaps.audio) parts.push('audio/*');
-  if(agentAttachCaps.pdf)   parts.push('.pdf');
   const inp=document.getElementById('attInput');
   if(inp) inp.accept=parts.join(',')||'*';
+}
+
+// ── Drag & Drop ───────────────────────────────────────────────
+function initDragDrop(){
+  const wrap=document.querySelector('.inp-wrap');if(!wrap)return;
+  wrap.addEventListener('dragover',e=>{e.preventDefault();wrap.classList.add('drag-over');});
+  wrap.addEventListener('dragleave',e=>{if(!wrap.contains(e.relatedTarget))wrap.classList.remove('drag-over');});
+  wrap.addEventListener('drop',e=>{
+    e.preventDefault();wrap.classList.remove('drag-over');
+    const files=[...e.dataTransfer.files];
+    if(files.length)processFiles(files);
+  });
 }
 
 function triggerAttach(){
@@ -1246,39 +1271,63 @@ function triggerAttach(){
 
 async function handleAttachFiles(e){
   const files=[...e.target.files];if(!files.length)return;
-  // Validate against caps
-  const unsupported=[];
-  for(const f of files){
-    const cat=guessCategory(f.name,f.type);
-    if(agentAttachCaps&&!agentAttachCaps[cat]){
-      unsupported.push(`${f.name} (${cat})`);
-    }
-  }
+  await processFiles(files);
+  e.target.value='';
+}
+
+async function processFiles(files){
+  // ── Client-side validation ─────────────────────────────────
+  const oversized=files.filter(f=>f.size>MAX_FILE_SIZE);
   const warnEl=document.getElementById('attUnsupported');
-  if(unsupported.length){
-    warnEl.textContent=`⚠ Not supported by this model: ${unsupported.join(', ')}`;
+  if(oversized.length){
+    warnEl.textContent=`⚠ File(s) too large (max 5 MB): ${oversized.map(f=>f.name).join(', ')}`;
     warnEl.classList.add('show');
-    // Still allow text/code files through, block others
-  } else {
+  }
+
+  const validFiles=files.filter(f=>f.size<=MAX_FILE_SIZE);
+  if(!validFiles.length)return;
+
+  // Category capability check
+  const unsupported=[];
+  const allowed=[];
+  for(const f of validFiles){
+    const cat=guessCategory(f.name,f.type);
+    if(agentAttachCaps&&!agentAttachCaps[cat]){unsupported.push(`${f.name} (${cat})`);}
+    else allowed.push(f);
+  }
+  if(unsupported.length){
+    const existing=warnEl.textContent;
+    warnEl.textContent=(existing?existing+' | ':'')+'⚠ Not supported by this model: '+unsupported.join(', ');
+    warnEl.classList.add('show');
+  } else if(!oversized.length){
     warnEl.classList.remove('show');
   }
-  // Upload supported files
+  if(!allowed.length)return;
+
   const formData=new FormData();
-  let uploadCount=0;
-  for(const f of files){
-    const cat=guessCategory(f.name,f.type);
-    if(!agentAttachCaps||agentAttachCaps[cat]){formData.append('files',f);uploadCount++;}
-  }
-  if(!uploadCount){e.target.value='';return;}
+  allowed.forEach(f=>formData.append('files',f));
+
   try{
     const res=await fetch('/api/attachments/upload',{method:'POST',body:formData});
     const d=await res.json();
     if(d.ok){
-      pendingAttachments.push(...d.files);
+      // Generate local preview URLs for images
+      const withPreviews=await Promise.all(d.files.map(async (af,i)=>{
+        const orig=allowed[i];
+        if(af.category==='image'&&orig){
+          af._previewUrl=await readAsDataURL(orig);
+        }
+        return af;
+      }));
+      pendingAttachments.push(...withPreviews);
       renderAttachBar();
+      renderPreviewBar();
     }else{showToast('Upload failed: '+(d.error||'unknown'),'err');}
   }catch(ex){showToast('Upload error: '+ex.message,'err');}
-  e.target.value='';
+}
+
+function readAsDataURL(file){
+  return new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>res(null);r.readAsDataURL(file);});
 }
 
 function guessCategory(filename,mimetype){
@@ -1304,26 +1353,60 @@ function renderAttachBar(){
   }).join('');
 }
 
+function renderPreviewBar(){
+  const bar=document.getElementById('attPreviewBar');if(!bar)return;
+  const visual=pendingAttachments.filter(a=>a.category==='image'||a.category==='pdf');
+  if(!visual.length){bar.innerHTML='';return;}
+  bar.innerHTML=visual.map((a,vi)=>{
+    const realIdx=pendingAttachments.indexOf(a);
+    if(a.category==='image'&&a._previewUrl){
+      return `<div class="att-thumb">
+        <img src="${esc(a._previewUrl)}" alt="${esc(a.originalname)}" title="${esc(a.originalname)}">
+        <button class="att-thumb-rm" onclick="removeAttachment(${realIdx})" title="Remove">×</button>
+      </div>`;
+    }
+    if(a.category==='pdf'){
+      return `<div class="att-thumb">
+        <div class="att-thumb-pdf" title="${esc(a.originalname)}">📕<span>PDF</span></div>
+        <button class="att-thumb-rm" onclick="removeAttachment(${realIdx})" title="Remove">×</button>
+      </div>`;
+    }
+    return '';
+  }).join('');
+}
+
 function removeAttachment(idx){
   pendingAttachments.splice(idx,1);
   renderAttachBar();
+  renderPreviewBar();
   if(!pendingAttachments.length)document.getElementById('attUnsupported').classList.remove('show');
 }
 
 function clearAttachments(){
   pendingAttachments=[];
   renderAttachBar();
+  renderPreviewBar();
   document.getElementById('attUnsupported').classList.remove('show');
 }
 
 // Render attachment previews in chat message
 function renderAttachPreview(attachments){
   if(!attachments||!attachments.length)return '';
-  return `<div style="display:flex;flex-wrap:wrap;gap:.28rem;margin-top:.4rem">${attachments.map(a=>{
-    const ico=CAT_ICONS[a.category]||'📎';
+  const chips=attachments.map(a=>{
     const sz=(a.size/1024)<1?`${a.size}B`:(a.size/1024)<1024?`${(a.size/1024).toFixed(1)}KB`:`${(a.size/1048576).toFixed(1)}MB`;
+    if(a.category==='image'&&a._previewUrl){
+      return `<span class="att-chip image" style="max-width:200px;flex-direction:column;align-items:flex-start;padding:.3rem .5rem;height:auto">
+        <img src="${esc(a._previewUrl)}" style="width:80px;height:60px;object-fit:cover;border-radius:5px;margin-bottom:3px;display:block">
+        <span style="font-size:.57rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">🖼️ ${esc(a.originalname)} <span style="opacity:.6">${sz}</span></span>
+      </span>`;
+    }
+    if(a.category==='pdf'){
+      return `<span class="att-chip pdf" style="max-width:160px">📕 ${esc(a.originalname)} <span style="opacity:.6">${sz}</span></span>`;
+    }
+    const ico=CAT_ICONS[a.category]||'📎';
     return `<span class="att-chip ${esc(a.category)}" style="max-width:140px">${ico} ${esc(a.originalname)} <span style="opacity:.6">${sz}</span></span>`;
-  }).join('')}</div>`;
+  }).join('');
+  return `<div style="display:flex;flex-wrap:wrap;gap:.28rem;margin-top:.4rem;align-items:flex-end">${chips}</div>`;
 }
 
 async function sendTask(){

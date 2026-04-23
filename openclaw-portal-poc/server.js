@@ -47,7 +47,13 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const upload = multer({
     dest: UPLOADS_DIR,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB per requirements
+    fileFilter: (req, file, cb) => {
+        // Accept all MIME types we categorise; reject others early
+        const cat = getFileCategory(file.mimetype, file.originalname);
+        if (cat) return cb(null, true);
+        cb(new Error(`Unsupported file type: ${file.mimetype}`));
+    },
 });
 
 // ── Model attachment capabilities ────────────────────────────
@@ -63,7 +69,12 @@ const MODEL_ATTACHMENT_CAPS = {
         audio: false,
         pdf:   false,
     },
+    // gemma4 multimodal — default model (text + image + PDF)
+    'ollama/gemma4':           { text: true, code: true, image: true,  video: false, audio: false, pdf: true  },
+    'ollama/gemma4:31b-cloud': { text: true, code: true, image: true,  video: false, audio: false, pdf: true  },
+
     // Vision-capable models
+    'ollama/qwen3.5:cloud': { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
     'ollama/llava':        { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
     'ollama/llava:13b':    { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
     'ollama/bakllava':     { text: true, code: true, image: true,  video: false, audio: false, pdf: false },
@@ -154,7 +165,7 @@ const PORT   = parseInt(process.env.PORT || '3001', 10);
 const BIND   = '0.0.0.0';
 
 // ── Default model — workspace is locked to this one ──────────
-const DEFAULT_MODEL = 'ollama/minimax-m2.7:cloud';
+const DEFAULT_MODEL = 'ollama/gemma4:31b-cloud';
 
 // ── Gateway token fallback (if openclaw.json doesn't expose it) ──
 const FALLBACK_GATEWAY_TOKEN = '89bb4a09636d7b7e54a09639c8f3273c4936d150347132a4';
@@ -933,6 +944,77 @@ function probeClientId(token, cb) {
 }
 
 // ════════════════════════════════════════════════════════════════
+// PDF TEXT EXTRACTION  — uses pdftotext (poppler) which is a
+// system binary available on macOS (brew install poppler) and
+// most Linux distros. Extracts selectable text from the PDF.
+// For scanned/image-only PDFs this returns empty string, and
+// the caller falls back to Ollama vision.
+// ════════════════════════════════════════════════════════════════
+function extractPdfText(filePath) {
+    return new Promise((resolve, reject) => {
+        // pdftotext -nopgbrk -q <input> - (dash = stdout)
+        exec(`pdftotext -nopgbrk -q "${filePath}" -`, { maxBuffer: 10 * 1024 * 1024, timeout: 30000 }, (err, stdout, stderr) => {
+            if (err) {
+                // Exit code 1 from pdftotext usually means "no text found" not a fatal error
+                if (stdout && stdout.trim().length > 0) return resolve(stdout);
+                // If truly failed (binary missing etc), reject so caller can handle
+                return reject(new Error(`pdftotext failed: ${stderr || err.message}`));
+            }
+            resolve(stdout || '');
+        });
+    });
+}
+
+// ════════════════════════════════════════════════════════════════
+// OLLAMA VISION  — describe image/PDF via Ollama directly so we
+// never inject raw base64 into the OpenClaw chat.send payload.
+// Returns a plain-text description (≤ ~800 tokens).
+// ════════════════════════════════════════════════════════════════
+const OLLAMA_BASE = 'http://127.0.0.1:11434';
+// Use the vision model directly — strip the "ollama/" prefix if present
+const VISION_MODEL = DEFAULT_MODEL.replace(/^ollama\//, '');
+
+async function describeWithOllama(base64Data, mimetype, userTask, fileType) {
+    const prompt = fileType === 'pdf'
+        ? `The user has attached a PDF document and said: "${userTask}"\n\nPlease summarise the content of this document clearly and concisely. Extract key information, headings, and important details. Keep your response under 400 words.`
+        : `The user has attached an image and said: "${userTask}"\n\nPlease describe what you see in this image in detail. Include objects, text, colours, layout, and any other relevant information. Keep your response under 400 words.`;
+
+    const body = {
+        model:  VISION_MODEL,
+        stream: false,
+        messages: [
+            {
+                role:    'user',
+                content: prompt,
+                images:  [base64Data],  // Ollama /api/chat vision format
+            },
+        ],
+        options: { num_predict: 600 },
+    };
+
+    console.log(`[VISION] Calling Ollama ${VISION_MODEL} for ${fileType} description...`);
+
+    const resp = await fetch(`${OLLAMA_BASE}/api/chat`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+        signal:  AbortSignal.timeout(120_000),  // 2-min timeout
+    });
+
+    if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        throw new Error(`Ollama vision API ${resp.status}: ${txt.slice(0, 200)}`);
+    }
+
+    const data = await resp.json();
+    const text = data?.message?.content || data?.response || '';
+    if (!text) throw new Error('Ollama returned empty vision response');
+
+    console.log(`[VISION] Got description (${text.length} chars)`);
+    return text.trim();
+}
+
+// ════════════════════════════════════════════════════════════════
 // OPENCLAW WS CLIENT  — sends task to agent, streams reply
 // ════════════════════════════════════════════════════════════════
 function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
@@ -1101,7 +1183,7 @@ function sendToAgent(agentId, message, onLog, onChunk, onDone, onError) {
                     const is500 = errMsg.includes('500 {') || errMsg.includes('"500"') || errMsg.includes('Internal Server Error');
                     if (is500 || errorCount >= 2) {
                         const hint = is500
-                            ? ' | FIX: run `ollama run minimax-m2.7:cloud` in a terminal to see the real error, OR pull local model: `ollama pull minimax-m2.7` and update openclaw.json'
+                            ? ' | FIX: run `ollama run qwen3.5:cloud` in a terminal to see the real error, OR pull local model: `ollama pull minimax-m2.7` and update openclaw.json'
                             : '';
                         finish(`Agent 500 error: ${errMsg}${hint}`);
                         return;
@@ -1168,23 +1250,32 @@ app.get('/api/agents/:id/attachment-caps', (req, res) => {
 // ════════════════════════════════════════════════════════════════
 // ATTACHMENT UPLOAD  — multipart file → temp disk, returns id
 // ════════════════════════════════════════════════════════════════
-app.post('/api/attachments/upload', upload.array('files', 10), (req, res) => {
-    try {
-        const files = (req.files || []).map(f => {
-            const category = getFileCategory(f.mimetype, f.originalname);
-            return {
-                id:           f.filename,
-                originalname: f.originalname,
-                mimetype:     f.mimetype,
-                size:         f.size,
-                category,
-                path:         f.path,
-            };
-        });
-        res.json({ ok: true, files });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
+app.post('/api/attachments/upload', (req, res) => {
+    upload.array('files', 10)(req, res, (err) => {
+        if (err) {
+            // multer errors (LIMIT_FILE_SIZE, unsupported type, etc.)
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(413).json({ error: 'File too large. Maximum size is 5 MB per file.' });
+            }
+            return res.status(400).json({ error: err.message });
+        }
+        try {
+            const files = (req.files || []).map(f => {
+                const category = getFileCategory(f.mimetype, f.originalname);
+                return {
+                    id:           f.filename,
+                    originalname: f.originalname,
+                    mimetype:     f.mimetype,
+                    size:         f.size,
+                    category,
+                    path:         f.path,
+                };
+            });
+            res.json({ ok: true, files });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -1204,8 +1295,16 @@ app.post('/api/task', async (req, res) => {
     if (creds.gmail)  ctxLines.push(`[Gmail: You are authenticated as ${creds.gmail.email}. Use this for all email operations.]`);
 
     // ── Build attachment context ──────────────────────────────
+    // Strategy:
+    //   text/code  → embed content inline in the message (safe, small)
+    //   image/pdf  → call Ollama vision API directly and inject the
+    //                model's *description* as text — never embed raw
+    //                base64 in the OpenClaw chat.send payload because
+    //                that blows the agent's context window instantly.
+    //   video/audio → note that file was attached, model can't process
     const attachLines = [];
     const cleanupFiles = [];
+
     if (attachments && attachments.length > 0) {
         for (const att of attachments) {
             const filePath = path.join(UPLOADS_DIR, att.id);
@@ -1216,20 +1315,42 @@ app.post('/api/task', async (req, res) => {
                 try {
                     const content = fs.readFileSync(filePath, 'utf8');
                     const lang = att.originalname.split('.').pop() || '';
-                    attachLines.push(`\n[Attachment: ${att.originalname} (${cat})]\n\`\`\`${lang}\n${content.slice(0, 80000)}\n\`\`\``);
+                    // Cap at 12 000 chars (~3k tokens) to be safe
+                    attachLines.push(`\n[Attachment: ${att.originalname} (${cat})]\n\`\`\`${lang}\n${content.slice(0, 12000)}\n\`\`\``);
                 } catch (e) {
                     attachLines.push(`\n[Attachment: ${att.originalname} — could not read: ${e.message}]`);
                 }
+
             } else if (cat === 'image') {
                 try {
-                    const imgData = fs.readFileSync(filePath).toString('base64');
-                    attachLines.push(`\n[Attachment: ${att.originalname} (image, base64)]\ndata:${att.mimetype};base64,${imgData.slice(0, 4_000_000)}`);
+                    const imgBase64 = fs.readFileSync(filePath).toString('base64');
+                    const description = await describeWithOllama(imgBase64, att.mimetype, task, 'image');
+                    attachLines.push(`\n[Image: ${att.originalname}]\n${description}`);
                 } catch (e) {
-                    attachLines.push(`\n[Attachment: ${att.originalname} — image read error: ${e.message}]`);
+                    attachLines.push(`\n[Image: ${att.originalname} — could not analyse: ${e.message}]`);
                 }
+
+            } else if (cat === 'pdf') {
+                try {
+                    const extractedText = await extractPdfText(filePath);
+                    if (extractedText && extractedText.trim().length > 20) {
+                        // Cap at 12 000 chars (~3k tokens) — same as text files
+                        const snippet = extractedText.slice(0, 12000);
+                        const truncated = extractedText.length > 12000 ? `\n…[truncated, ${extractedText.length} chars total]` : '';
+                        attachLines.push(`\n[PDF: ${att.originalname}]\n\`\`\`\n${snippet}${truncated}\n\`\`\``);
+                    } else {
+                        // Scanned/image-only PDF — fall back to vision description
+                        console.log(`[PDF] Text extraction empty for ${att.originalname}, falling back to vision`);
+                        const pdfBase64 = fs.readFileSync(filePath).toString('base64');
+                        const description = await describeWithOllama(pdfBase64, 'application/pdf', task, 'pdf');
+                        attachLines.push(`\n[PDF (scanned): ${att.originalname}]\n${description}`);
+                    }
+                } catch (e) {
+                    attachLines.push(`\n[PDF: ${att.originalname} — could not process: ${e.message}]`);
+                }
+
             } else {
-                // video/audio/pdf — not inline-injectable to a text model; describe what was attached
-                attachLines.push(`\n[Attachment: ${att.originalname} (${cat}, ${(att.size/1024).toFixed(1)} KB) — file attached but model may not support direct ${cat} processing]`);
+                attachLines.push(`\n[Attachment: ${att.originalname} (${cat}, ${(att.size/1024).toFixed(1)} KB) — ${cat} files are not supported for inline processing]`);
             }
         }
     }
