@@ -1706,4 +1706,61 @@ server.on('error', (e) => {
     }
 });
 
+
+// ════════════════════════════════════════════════════════════════
+// TELEGRAM BRIDGE  — auto-starts with server if configured
+// Add these lines to the bottom of your server.js
+// ════════════════════════════════════════════════════════════════
+
+// ── Add this require at the top of server.js ─────────────────
+// const { startTelegramBridge } = require('./telegram-bridge');
+
+// ── Add this inside your onListen() function in server.js ────
+// (after the existing console.log startup messages)
+
+const { startTelegramBridge } = require('./telegram-bridge');
+
+// Start Telegram bridge after gateway is confirmed reachable
+// Delay 3s to let OpenClaw gateway fully initialise first
+setTimeout(() => {
+  startTelegramBridge().catch(err =>
+    console.error('[TG BRIDGE] Failed to start:', err.message)
+  );
+}, 3000);
+
+
+// ════════════════════════════════════════════════════════════════
+// ALSO: add the following API routes to server.js for dashboard
+// control of bots (enable/disable per agent without restart)
+// ════════════════════════════════════════════════════════════════
+
+// GET  /api/telegram/status   — shows which bots are running
+// POST /api/telegram/:id/toggle — enable or disable a bot live
+
+const activeBots = new Map(); // agentId → { polling: true/false }
+
+app.get('/api/telegram/status', (req, res) => {
+  const tgCfg = readJson(path.join(OC, 'telegram-config.json'));
+  const result = (readConfig()?.agents?.list || []).map(a => ({
+    agentId:   a.id,
+    agentName: a.name || a.id,
+    enabled:   tgCfg.agents?.[a.id]?.enabled || false,
+    hasToken:  (tgCfg.agents?.[a.id]?.botToken || '').length > 10,
+    username:  tgCfg.agents?.[a.id]?.botUsername || '',
+    running:   activeBots.has(a.id),
+  }));
+  res.json(result);
+});
+
+app.post('/api/telegram/:id/toggle', (req, res) => {
+  const { id }     = req.params;
+  const { enabled } = req.body;
+  const cfgPath    = path.join(OC, 'telegram-config.json');
+  const tgCfg      = readJson(cfgPath);
+  if (!tgCfg.agents?.[id]) return res.status(404).json({ error: `Agent ${id} not in telegram-config.json` });
+  tgCfg.agents[id].enabled = !!enabled;
+  writeJson(cfgPath, tgCfg);
+  res.json({ ok: true, agentId: id, enabled: !!enabled, message: `Bot ${enabled ? 'enabled' : 'disabled'} — restart bridge to apply` });
+});
+
 server.listen(PORT, BIND, onListen);
